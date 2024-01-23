@@ -1,0 +1,1 @@
+{"rule":"ARROWS","sentence":"^\\QT1 calligra m n <->s*[2.2]callig15\\E$"}
