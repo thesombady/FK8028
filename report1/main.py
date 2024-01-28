@@ -230,6 +230,7 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.00001):
         it can compute the position of more items, it's just the plotting that varies.
     """
     while t < T:
+        """
         for i in range(len(atoms)):
             
             potential: float = 0
@@ -272,6 +273,34 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.00001):
         print(f'Completed {t/T}%')
     
         # os.system('clear')
+        """
+        atom1 = atoms[0]
+        atom2 = atoms[1]
+
+        potential, force1 = LennardJones(atom1.position, atom2.position)
+        force2 = -force1
+
+        VerletMethodPosition(atom1, dt, force1)
+        VerletMethodPosition(atom2, dt, force2)
+
+        _, newForce = LennardJones(atom1.position, atom2.position)
+
+        VerletMethodVelocity(atom1, dt, newForce, force1)
+        VerletMethodVelocity(atom2, dt, newForce, force2)
+
+        Potential.append(potential)
+
+        atom1_pos_x.append(atom1.position[0])
+        atom2_pos_x.append(atom2.position[0])
+        atom1_vel_x.append((atom1.velocity[0]))
+        atom2_vel_x.append((atom2.velocity[0]))
+
+        atom1_Kinetic.append(KineticEnergy(atom1, atom1.velocity[-1]))
+        atom2_Kinetic.append(KineticEnergy(atom2, atom2.velocity[-1]))
+
+        Hamiltonian.append(computeHamiltonian(atoms, [atom1.velocity[-1], atom2.velocity[-1]], potential))
+
+
             
         t += dt
 
