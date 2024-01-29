@@ -3,35 +3,47 @@ from numpy import typing as npt
 from dataclasses import dataclass
 from typing import List, Tuple
 import matplotlib.pyplot as plt
+from enum import Enum, auto
 
 type Vector = npt.ArrayLike[npt.float64]
+
+SPEED_OF_LIGHT = 299_792_458 # m/s
+GEV_CONVERSION = 931.394 * 10**6
+
+
+class State(Enum):
+    """
+        Enum to choose starting relative position
+    """
+    close = auto()
+    far = auto()
+    
 
 @dataclass
 class Atom: # Argon atom
     position: Vector
     velocity: Vector 
     radius: float = 1.0 # Ångström
-    mass: float = 39.948 * 931.394* 10**9 / (299_792_458)**2 # GeV/
+    mass: float = 39.948 * GEV_CONVERSION / (SPEED_OF_LIGHT * 1e10)**2 # eVs^2/Å^2
 
-def Normalize(vector: Vector) -> np.ndarray:
-    return vector / np.linalg.norm(vector)
 
-def LennardJones(pos1: npt.ArrayLike, pos2: npt.ArrayLike) -> Tuple[float, np.ndarray]:
+def LennardJones(pos1: Vector, pos2: Vector) -> Tuple[float, np.ndarray]:
     """
        Computes the Lennards-Jones potential and force between two atoms. 
     """
-    sigma: float = 3.40 
-    epsilon: float = 0.0104
+    sigma: float = 3.40 # Å
+    epsilon: float = 0.0104 # eV
 
-    r: npt.ArrayLike = pos1 - pos2 # Relative position
+    r: Vector = pos1 - pos2 # Relative position
 
-    delta = (sigma / np.linalg.norm(r)) ** 6
+    delta: float = (sigma / np.linalg.norm(r)) ** 6
     
     potential: float = 4 * epsilon * (delta ** 2 - delta)
 
-    force: npt.ArrayLike = 4 * epsilon * (12 * delta ** 2 - 6 * delta) * (r) / np.linalg.norm(r)**2
+    force: Vector = 4 * epsilon * (12 * delta ** 2 - 6 * delta) * (r) / np.linalg.norm(r)**2
 
     return potential, force
+
     
 def plotForcePotential(V: List[float], F_x: List[float], range_: Vector) -> None:
     """
@@ -60,8 +72,6 @@ def plotForcePotential(V: List[float], F_x: List[float], range_: Vector) -> None
     # plt.show()
 
 
-    
-
 def computeForceAndPotentialForPlot() -> None:
     """
         Computes the force in the x direction for each atom in the system.
@@ -81,22 +91,34 @@ def computeForceAndPotentialForPlot() -> None:
     
     plotForcePotential(V, fx, range_)
     
-    
 
-def Initalize() -> List[Atom]:
+def Initalize(state: State) -> List[Atom]:
     """
-        Returns a list of two atoms seperated by 4 Ångström.
+        Returns a list of two atoms seperated by x Ångström.
+        Depending on state the atoms are seperated by 4 or 3 Ångström.
     """
-    atoms: List[Atom] = [
-        Atom(
-            np.array([0,0,0]),
-            np.array([0,0,0])
-        ),
-        Atom(
-            np.array([4,0,0]),
-            np.array([0,0,0])
-        )
-    ]
+    if state == State.far:
+        atoms: List[Atom] = [
+            Atom(
+                np.array([0,0,0]),
+                np.array([0,0,0])
+            ),
+            Atom(
+                np.array([4,0,0]),
+                np.array([0,0,0])
+         )
+        ]
+    else:
+        atoms: List[Atom] = [
+            Atom(
+                np.array([0,0,0]),
+                np.array([0,0,0])
+            ),
+            Atom(
+                np.array([3,0,0]),
+                np.array([0,0,0])
+         )
+        ]
 
     return atoms
 
@@ -106,7 +128,7 @@ def VerletMethodPosition(atom: Atom, dt: float, force: Vector) -> None:
         Computes the new position of an atom using the Verlet method.
         Force is in unit eV/Å, dt is in unit s and mass is in unit GeV/c^2
     """
-    pos: np.ndarray = atom.position + atom.velocity * dt + force / (2 * atom.mass) * dt**2
+    pos: Vector = atom.position + atom.velocity * dt + force / (2 * atom.mass) * dt**2
 
     atom.position = pos
 
@@ -120,7 +142,7 @@ def VerletMethodVelocity(atom: Atom, dt: float, forceNew: Vector, forceOld: Vect
     atom.velocity = vel
 
 
-def KineticEnergy(atom: Atom, velocity: np.ndarray) -> float:
+def KineticEnergy(atom: Atom, velocity: Vector) -> float:
     """
         Computes the kinetic energy of an atom.
     """
@@ -135,12 +157,16 @@ def computeHamiltonian(atoms: List[Atom], velocity: Vector, potential: float) ->
     for i in range(len(atoms)):
         kinetic_part += atoms[i].mass * np.linalg.norm(velocity[i])**2
     
-    return kinetic_part + potential
+    return 1/2 * kinetic_part + potential
 
 
 def plotSimulation(t: np.ndarray, atom1_pos_x: List[float], atom2_pos_x: List[float],
                 atom1_vel_x: List[float], atom2_vel_x: List[float], atom1_Kinetic: List[float],
                 atom2_Kinetic: List[float], Potential: List[float], Hamiltonian: List[float]) -> None:
+    """
+        Function that plots the different quantities in the system.
+        Then stores the plots as .png files.
+    """
 
     plt.title('Position of the atoms')
     plt.plot(t, atom1_pos_x, label='$x_1(t)$')
@@ -167,11 +193,12 @@ def plotSimulation(t: np.ndarray, atom1_pos_x: List[float], atom2_pos_x: List[fl
     plt.clf()
 
     plt.title('Different energies in the system')
-    plt.plot(t, Potential, '--',  markersize = 1, label='V(t)')
 
-    plt.plot(t, np.array(atom2_Kinetic) + np.array(atom1_Kinetic), label='$K_{tot}(t)$')
+    plt.plot(t, np.array(atom2_Kinetic) + np.array(atom1_Kinetic), label='$\mathcal{K}(t)$')
 
-    plt.plot(t, Hamiltonian, label='$H(t)$')
+    plt.plot(t, Hamiltonian, label='$\mathcal{H}(t)$')
+
+    plt.plot(t, Potential, '--',  markersize = 1, label='$\mathcal{V}(t)$')
 
     plt.grid()
     plt.xlabel('Time [s]')
@@ -181,25 +208,26 @@ def plotSimulation(t: np.ndarray, atom1_pos_x: List[float], atom2_pos_x: List[fl
     # plt.show()
 
 
-def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.0001):
+def runSimulation(plotSim: bool, plotHamiltonian: bool, state: State, dt = 1e-15):
     """
-        Run the simulation 
+        Run the simulation.
+        plotSim: determines if one wants to plot the energy, position and velocity plot
+        plotHamiltonian: recurise call to plot the hamiltonian for various dts
+        state: used to determine which position to seperate the atoms about.
     """
-    atoms = Initalize()
+    atoms = Initalize(state)
 
-    T: float = 1
+    T: float = 1/1e11
     t: float = 0
 
-    """
-    atoms_pos_x = {
-        atoms[i]: atoms[i].position[0] for i in range(len(atoms))
-    }
-    """
     if plotHamiltonian:
-        dt = [0.1, 0.05, 0.01, 0.005, 0.001]
+        """
+
+        """
+        dt = [1e-12, 1e-13, 1e-14, 1e-15, 1e-16]
         for i in range(len(dt)):
             Hamiltonian = runSimulation(False, False, dt[i])
-            plt.plot(np.linspace(0, T, len(Hamiltonian)), Hamiltonian, label=f'dt = {dt[i]}')
+            plt.plot(np.linspace(0, T, len(Hamiltonian)), Hamiltonian, label=f'dt = ${dt[i]}$')
         plt.legend()
         plt.xlabel('Time [s]')
         plt.ylabel('Energy [eV]')
@@ -211,6 +239,7 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.0001):
         return
         
     
+    # Various lists that stores the elements from the simulation
     Potential: List[float] = []
 
     atom1_pos_x: List[float] = []
@@ -231,56 +260,15 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.0001):
         It's only two atoms in the system, however it's written in a way such that
         it can compute the position of more items, it's just the plotting that varies.
     """
+    atom1: Atom = atoms[0]
+    atom2: Atom = atoms[1]
     while t < T:
         """
-        for i in range(len(atoms)):
-            
-            potential: float = 0
-            oldForce: np.ndarray = np.array([0,0,0])
-
-            for j in range(len(atoms)):
-                if i == j:
-                    continue
-
-                potential_, force_ = LennardJones(atoms[i].position, atoms[j].position)
-                potential += potential_
-                oldForce = oldForce + force_
-
-            VerletMethodPosition(atoms[i], dt, oldForce)
-            
-        for i in range(len(atoms)):
-
-            newForce: np.ndarray = np.array([0,0,0])
-
-            for j in range(len(atoms)):
-                if i == j:
-                        continue
-
-                _, force_ = LennardJones(atoms[i].position, atoms[j].position)
-                newForce = newForce + force_
-
-            VerletMethodVelocity(atoms[i], dt, oldForce, newForce)
-
-            if i == 1:
-                Potential.append(potential)
-                atom1_pos_x.append(atoms[i].position[0])
-                atom1_vel_x.append((atoms[i].velocity[0]))
-                atom1_Kinetic.append(KineticEnergy(atoms[i], atoms[i].velocity[0]))
-            else:
-                atom2_pos_x.append(atoms[i].position[0])
-                atom2_vel_x.append((atoms[i].velocity[0]))
-                atom2_Kinetic.append(KineticEnergy(atoms[i], atoms[i].velocity[0]))
-        
-        Hamiltonian.append(computeHamiltonian(atoms, [atoms[i].velocity[0], atoms[i].velocity[0]], potential))
-        print(f'Completed {t/T}%')
-    
+            Loop that iterates over the Velocity Verlet method
         """
-        # """
-        atom1 = atoms[0]
-        atom2 = atoms[1]
 
         potential, force1 = LennardJones(atom1.position, atom2.position)
-        _, force2 = LennardJones(atom2.position, atom1.position)
+        force2 = - force1 # Newtons third law
 
         VerletMethodPosition(atom1, dt, force1)
         VerletMethodPosition(atom2, dt, force2)
@@ -289,7 +277,7 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.0001):
         atom2_pos_x.append(atom2.position[0])
 
         _, newForce1 = LennardJones(atom1.position, atom2.position)
-        _, newForce2 = LennardJones(atom2.position, atom1.position)
+        newForce2 = - newForce1 # Newtons third law
 
         atom1_vel_x.append((atom1.velocity[0]))
         atom2_vel_x.append((atom2.velocity[0]))
@@ -320,5 +308,9 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.0001):
 
 
 if __name__ == '__main__':
-    #computeForceAndPotentialForPlot()
-    runSimulation(True, False)
+    computeForceAndPotentialForPlot()
+    state = State.far
+    runSimulation(True, False, state)
+    state = State.close
+    # runSimulation(True, False, state)
+    runSimulation(False, True)
