@@ -1,43 +1,47 @@
 import numpy as np
+from numpy import typing as npt
 from dataclasses import dataclass
 from typing import List, Tuple
 import matplotlib.pyplot as plt
 
+type Vector = npt.ArrayLike[npt.float64]
+
 @dataclass
 class Atom: # Argon atom
-    position: np.ndarray
-    velocity: np.ndarray
+    position: Vector
+    velocity: Vector 
     radius: float = 1.0 # Ångström
     mass: float = 39.948 * 931.394* 10**9 / (299_792_458)**2 # GeV/
 
-def Normalize(vector: np.ndarray) -> np.ndarray:
+def Normalize(vector: Vector) -> np.ndarray:
     return vector / np.linalg.norm(vector)
 
-def LennardJones(pos1: np.ndarray, pos2: np.ndarray) -> (float, np.ndarray):
+def LennardJones(pos1: npt.ArrayLike, pos2: npt.ArrayLike) -> (float, np.ndarray):
     """
        Computes the Lennards-Jones potential and force between two atoms. 
     """
     sigma: float = 3.40 
     epsilon: float = 0.0104
-    r: np.ndarray = pos1 - pos2 # Relative position
+
+    r: npt.ArrayLike = pos1 - pos2 # Relative position
 
     delta = (sigma / np.linalg.norm(r)) ** 6
     
     potential: float = 4 * epsilon * (delta ** 2 - delta)
 
-    force: np.ndarray = 4 * epsilon * (12 * delta ** 2 - 6 * delta) * (r) / np.linalg.norm(r)**2
+    force: npt.ArrayLike = 4 * epsilon * (12 * delta ** 2 - 6 * delta) * (r) / np.linalg.norm(r)**2
 
     return potential, force
     
-def plotForcePotential(V: List[float], F_x: List[float], range_: np.ndarray) -> None:
+def plotForcePotential(V: List[float], F_x: List[float], range_: Vector) -> None:
     """
         Plots the force and potential given a potential and force in the X-direction.
         Also plots the force as a differece quotient.
     """
     plt.title('Interatomic force in the x direction')
     plt.plot(range_, F_x, label='${F_x}$')
-    plt.xlabel('Distance [$\AA$]')
-    plt.ylabel('Force [eV/$\AA$]')
+    plt.xlabel('Distance [Å]')
+    plt.ylabel('Force [eV/Å]')
     plt.plot(range_[:-1], [(V[i+1]-V[i])/(range_[1]-range_[0]) for i in range(len(V) - 1)], 
             '.', markersize = 2, label='${F_x^{\Delta}}$'
     )
@@ -90,15 +94,14 @@ def Initalize() -> List[Atom]:
         ),
         Atom(
             np.array([4,0,0]),
-            np.array([4,0,0])
+            np.array([0,0,0])
         )
     ]
 
     return atoms
 
 
-
-def VerletMethodPosition(atom: Atom, dt: float, force: np.ndarray):
+def VerletMethodPosition(atom: Atom, dt: float, force: Vector) -> None:
     """
         Computes the new position of an atom using the Verlet method.
         Force is in unit eV/Å, dt is in unit s and mass is in unit GeV/c^2
@@ -108,13 +111,12 @@ def VerletMethodPosition(atom: Atom, dt: float, force: np.ndarray):
     atom.position = pos
 
 
-def VerletMethodVelocity(atom: Atom, dt: float, forceNew: np.ndarray, forceOld: np.ndarray):
+def VerletMethodVelocity(atom: Atom, dt: float, forceNew: Vector, forceOld: Vector) -> None:
     """
         Computes the new velocity of an atom using the Verlet method.
         Force is in unit eV/Å, dt is in unit s and mass is in unit GeV/c^2
     """
-    vel: np.ndarray = atom.velocity + (forceNew/atom.mass  + forceOld/atom.mass) / (2) * dt
-
+    vel: Vector = atom.velocity + (forceNew  + forceOld) / (2 * atom.mass) * dt
     atom.velocity = vel
 
 
@@ -125,7 +127,7 @@ def KineticEnergy(atom: Atom, velocity: np.ndarray) -> float:
     return 0.5 * atom.mass * np.linalg.norm(velocity)**2
 
 
-def computeHamiltonian(atoms: List[Atom], velocity: np.ndarray, potential: np.ndarray) -> float:
+def computeHamiltonian(atoms: List[Atom], velocity: Vector, potential: float) -> float:
     """
         Computes the Hamiltonian of the system.
     """
@@ -165,7 +167,7 @@ def plotSimulation(t: np.ndarray, atom1_pos_x: List[float], atom2_pos_x: List[fl
     plt.clf()
 
     plt.title('Different energies in the system')
-    plt.plot(t, Potential, label='V(t)')
+    plt.plot(t, Potential, '--',  markersize = 1, label='V(t)')
 
     plt.plot(t, np.array(atom2_Kinetic) + np.array(atom1_Kinetic), label='$K_{tot}(t)$')
 
@@ -179,7 +181,7 @@ def plotSimulation(t: np.ndarray, atom1_pos_x: List[float], atom2_pos_x: List[fl
     # plt.show()
 
 
-def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.00001):
+def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.0001):
     """
         Run the simulation 
     """
@@ -263,44 +265,48 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.00001):
                 Potential.append(potential)
                 atom1_pos_x.append(atoms[i].position[0])
                 atom1_vel_x.append((atoms[i].velocity[0]))
-                atom1_Kinetic.append(KineticEnergy(atoms[i], atoms[i].velocity[-1]))
+                atom1_Kinetic.append(KineticEnergy(atoms[i], atoms[i].velocity[0]))
             else:
                 atom2_pos_x.append(atoms[i].position[0])
                 atom2_vel_x.append((atoms[i].velocity[0]))
-                atom2_Kinetic.append(KineticEnergy(atoms[i], atoms[i].velocity[-1]))
+                atom2_Kinetic.append(KineticEnergy(atoms[i], atoms[i].velocity[0]))
         
-        Hamiltonian.append(computeHamiltonian(atoms, [atoms[i].velocity[-1], atoms[i].velocity[-1]], potential))
+        Hamiltonian.append(computeHamiltonian(atoms, [atoms[i].velocity[0], atoms[i].velocity[0]], potential))
         print(f'Completed {t/T}%')
     
-        # os.system('clear')
         """
+        # """
         atom1 = atoms[0]
         atom2 = atoms[1]
 
         potential, force1 = LennardJones(atom1.position, atom2.position)
-        force2 = -force1
+        _, force2 = LennardJones(atom2.position, atom1.position)
 
         VerletMethodPosition(atom1, dt, force1)
         VerletMethodPosition(atom2, dt, force2)
-
-        _, newForce = LennardJones(atom1.position, atom2.position)
-
-        VerletMethodVelocity(atom1, dt, newForce, force1)
-        VerletMethodVelocity(atom2, dt, newForce, force2)
-
-        Potential.append(potential)
-
+        
         atom1_pos_x.append(atom1.position[0])
         atom2_pos_x.append(atom2.position[0])
+
+        _, newForce1 = LennardJones(atom1.position, atom2.position)
+        _, newForce2 = LennardJones(atom2.position, atom1.position)
+
         atom1_vel_x.append((atom1.velocity[0]))
         atom2_vel_x.append((atom2.velocity[0]))
 
-        atom1_Kinetic.append(KineticEnergy(atom1, atom1.velocity[-1]))
-        atom2_Kinetic.append(KineticEnergy(atom2, atom2.velocity[-1]))
+        VerletMethodVelocity(atom1, dt, newForce1, force1)
+        VerletMethodVelocity(atom2, dt, newForce2, force2)
 
-        Hamiltonian.append(computeHamiltonian(atoms, [atom1.velocity[-1], atom2.velocity[-1]], potential))
+        Potential.append(potential)
+
+        atom1_Kinetic.append(KineticEnergy(atom1, atom1.velocity))
+        atom2_Kinetic.append(KineticEnergy(atom2, atom2.velocity))
+
+        Hamiltonian.append(computeHamiltonian(atoms, [atom1.velocity, atom2.velocity], potential))
 
 
+        print(f'Completed {t/T} %')
+        #"""
             
         t += dt
 
