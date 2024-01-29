@@ -126,7 +126,7 @@ def Initalize(state: State) -> List[Atom]:
 def VerletMethodPosition(atom: Atom, dt: float, force: Vector) -> None:
     """
         Computes the new position of an atom using the Verlet method.
-        Force is in unit eV/Å, dt is in unit s and mass is in unit GeV/c^2
+        Force is in unit eV/Å, dt is in unit s and mass is in unit eV/c^2
     """
     pos: Vector = atom.position + atom.velocity * dt + force / (2 * atom.mass) * dt**2
 
@@ -136,7 +136,7 @@ def VerletMethodPosition(atom: Atom, dt: float, force: Vector) -> None:
 def VerletMethodVelocity(atom: Atom, dt: float, forceNew: Vector, forceOld: Vector) -> None:
     """
         Computes the new velocity of an atom using the Verlet method.
-        Force is in unit eV/Å, dt is in unit s and mass is in unit GeV/c^2
+        Force is in unit eV/Å, dt is in unit s and mass is in unit eV/c^2
     """
     vel: Vector = atom.velocity + (forceNew  + forceOld) / (2 * atom.mass) * dt
     atom.velocity = vel
@@ -256,9 +256,7 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, state: State, dt = 1e-15
 
     """
         While loop that runs the simulation. 
-        Iterates over the atoms and computes the force and potential between them.
-        It's only two atoms in the system, however it's written in a way such that
-        it can compute the position of more items, it's just the plotting that varies.
+        Iterates via the Velocity Verlet method for two atoms.
     """
     atom1: Atom = atoms[0]
     atom2: Atom = atoms[1]
@@ -294,7 +292,6 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, state: State, dt = 1e-15
 
 
         print(f'Completed {t/T} %')
-        #"""
             
         t += dt
 
@@ -306,11 +303,10 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, state: State, dt = 1e-15
     return Hamiltonian
 
 
-
 if __name__ == '__main__':
     computeForceAndPotentialForPlot()
     state = State.far
     runSimulation(True, False, state)
     state = State.close
-    # runSimulation(True, False, state)
+    # runSimulation(True, False, state) # Used for investigating atoms placed close together
     runSimulation(False, True)
