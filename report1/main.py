@@ -16,7 +16,7 @@ class Atom: # Argon atom
 def Normalize(vector: Vector) -> np.ndarray:
     return vector / np.linalg.norm(vector)
 
-def LennardJones(pos1: npt.ArrayLike, pos2: npt.ArrayLike) -> (float, np.ndarray):
+def LennardJones(pos1: npt.ArrayLike, pos2: npt.ArrayLike) -> Tuple[float, np.ndarray]:
     """
        Computes the Lennards-Jones potential and force between two atoms. 
     """
@@ -310,7 +310,7 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, dt = 0.0001):
             
         t += dt
 
-    t = np.linspace(0, T, len(atom1_pos_x)) # Time array
+    t: Vector = np.linspace(0, T, len(atom1_pos_x)) # Time array
 
     if plotSim:
         plotSimulation(t, atom1_pos_x, atom2_pos_x, atom1_vel_x, atom2_vel_x, atom1_Kinetic, atom2_Kinetic, Potential, Hamiltonian)
