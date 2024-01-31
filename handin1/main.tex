@@ -121,24 +121,12 @@ To check whether, or not, the system is symplectic we compute the Jacobian of th
     \end{pmatrix} = \underbrace{\begin{pmatrix}
         1 & \Delta t\\
         -\w^2\Delta t & 1
-    \end{pmatrix}}_{\mathbf{A}}\begin{pmatrix}x_n\\v_n\end{pmatrix}.
-\end{align*}The system is symplectic if the Jacobian of $\mathbf{A}$, $\mathbf{J}$ is symplectic, i.e. $\mathbf{J}\mathbf{w}\mathbf{J}^T=\mathbf{w}$, where $\mathbf{w} = ((0, 1)^T, (-1, 0)^T)^T$.
+    \end{pmatrix}}_{\mathbf{J}}\begin{pmatrix}x_n\\v_n\end{pmatrix}.
+\end{align*}The system is symplectic if the Jacobian is symplectic. One can check the symplectic condition by taking the determinant and checking if it is equal to one.
 \begin{align*}
-    \mathbf{J}\mathbf{w}\mathbf{J}^T &= \begin{pmatrix}
-        0 & 1\\
-        -\w^2 & 0
-    \end{pmatrix}\begin{pmatrix}
-        0 & 1\\
-        -1 & 0
-    \end{pmatrix}\begin{pmatrix}
-        0 & -\w^2\\
-        1 & 0
-    \end{pmatrix}\\
-    &=\begin{pmatrix}
-        w^2 & 0 \\
-        0 &-1
-    \end{pmatrix}\neq\mathbf{w}.
-\end{align*}Since the Jacobian is not symplectic, the system is not symplectic, i.e. the phase-space volume is not conserved.
+    \det(\mathbf{J}) &= 1\cdot 1 + \Delta t\w^2\Delta t = 1 + \Delta t^2\w^2\neq 1\\
+\end{align*}
+Since the Jacobian is not symplectic, the system is not symplectic, i.e. the phase-space volume is not conserved.
 
 \section*{Interactions}
 Imagine a simulation of liquid water, H$_2$O$(l)$, with an intramolecular harmonic bond potentials, $(k^{\text{OH}}, r_{eq}^\text{OH})$ and $(k^{\text{HH}}, r_{eq}^{\text{HH}})$,
@@ -152,8 +140,10 @@ We want to write the full potential energy expression of the system with this ap
 \begin{align*}
     U &= U_{\text{intra}} + U_{\text{inter}}\\
     U &= \underbrace{U_{\text{OH}} + U_{\text{HH}}}_{\text{intra}} + \underbrace{U_{\text{OO}}}_{\text{inter}}\\
-    U &= \sum_{i = 1}^{32}\left\{k^{\text{OH}}\left(r_i^{\text{OH}} - r_{\text{eq}}^\text{OH}\right)^2 + k^{\text{HH}}\left(r_i - r_{\text{eq}}^{\text{HH}}\right)^2 + \sum_{j = 1, i \neq j}^{32}4\epsilon^{\text{OO}}\left[\left(\frac{\sigma^{\text{OO}}}{r_{i,j}}\right)^{12} - \left(\frac{\sigma^{\text{OO}}}{r_{i,j}}\right)^6\right]\right\}
-\end{align*}where $r_{i,j}$ is the distance between to molecules $i$ and $j$, and $r_i$ is the distance between the two atoms in the $i$th molecule. The first potential term $k^{\text{OH}}\left(r_i - r_{\text{eq}}^{\text{OH}}\right)$ takes into account the two interactions that occur in each molecule. This is built into $k^{\text{OH}}$.
+    U &= \sum_{i = 1}^{32}\left\{k^{\text{OH}}\left(r_i^{\text{OH}} - r_{\text{eq}}^\text{OH}\right)^2 + k^{\text{OH}}\left(r_i^{\text{OH}} - r_{\text{eq}}^\text{OH}\right)^2 + k^{\text{HH}}\left(r_i - r_{\text{eq}}^{\text{HH}}\right)^2\right\}\\
+    &+ \sum_{i=1}^{32}\sum_{j = 1, i \neq j}^{32}\left\{4\epsilon^{\text{OO}}\left[\left(\frac{\sigma^{\text{OO}}}{r_{i,j}}\right)^{12} - \left(\frac{\sigma^{\text{OO}}}{r_{i,j}}\right)^6\right]\right\}
+\end{align*}where $r_{i,j}$ is the distance between to molecules $i$ and $j$, and $r_i$ is the distance between the two atoms in the $i$th molecule.
+The term $U_{OH}$ has two contributions, one for each bond in the molecule and thus, in the sum, there are two terms for each molecule.
 
 \subsection*{b)}
 Discuss what physical interactions are missing, and how the model could be improved.

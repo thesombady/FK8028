@@ -1,4 +1,6 @@
 \documentclass[a4paper]{article}
+\usepackage{fancyhdr}
+% \pagestyle{fancy}
 \usepackage{a4wide}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
@@ -88,7 +90,8 @@
 
 \begin{document}
 
-\maketitle
+%\maketitle
+\input{front.tex}
 \pagenumbering{Roman}
 \newpage
 \pagenumbering{roman}
@@ -100,7 +103,7 @@
 \section{Introduction}
 In this report one investigates the behavior of two particles interacting with a Lennard-Jones potential. The time-integration is computed in accordance to a method called Velocity Verlet (Verlet Method) which allows for computing a particles position in time as a function of velocity and acceleration.
 With two different initial conditions one observes different behavior. When two particles are placed close to the equilibrium distance, the particles start to oscillate with the resonance frequency of the system. 
-When placed tightly together, the atoms repel each-other and overcomes the potential barrier and escapes the potential field.
+When the atoms are placed close enough to each-other, the atoms repel one-another and overcomes the potential barrier and escapes the potential field.
 
 \newparagraph
 The integration method used is also said to be symplectic, which is found to be true where one finds that the energy is conserved for small enough time-steps when placing the particles close to the equilibrium distance. 
@@ -129,7 +132,7 @@ The system is treated as a classical system, where the particles are treated as 
 \begin{align*}
     \mathcal{K}(t) &= \sum_i \frac{m_i\mathbf{\mathbf{v}_i(t)}^2}{2}\\
     &=\sum_i \frac{\mathbf{p}_i^2}{2m_i},
-\end{align*}where $m_i$ is the mass of the particle, $\mathbf{v}_i$ is the velocity, and $\mathbf{p}_i$ is the momentum of the i:th particle.
+\end{align*}where $m_i$ is the mass, $\mathbf{v}_i$ is the velocity, and $\mathbf{p}_i$ is the momentum of the i:th particle.
 From this one can then define the Hamiltonian of the system $\mathcal{H}(t)$ as:
 \begin{align}
     H(t) &= \sum_i \dot{\mathbf{q}}_i\mathbf{p}_i + V(\{\mathbf{q}_i\}), \label{eq: Hamiltonian}
@@ -178,7 +181,7 @@ The interatomic potential, eq \eqref{eq: LJ Potential}, and the force, eq \eqref
     \begin{subfigure}[b]{0.45\textwidth}
         \centering
         \includegraphics[width=\textwidth]{Interatomic force in the x direction.png}
-        \caption{Force interaction in the $\hat{x}$ direction.}
+        \caption{Force in the $\hat{x}$ direction.}
         \label{fig:Interatomic force}
     \end{subfigure}
     \caption{Lennard-Jones potential and force.}
@@ -236,7 +239,8 @@ This is the result of the Verlet method being a forth order accurate method, whi
     \includegraphics[scale = .5]{Hamiltonian with different time-steps.png}
     \caption{Hamiltonian as a function of time for different time-steps.}
     \label{fig: Hamiltonian with different time-steps}
-\end{figure}
+\end{figure}\noindent
+Three of the four Hamiltonians above figure overlap and are indistinguishable from each-other. The forth Hamiltonian, computed with the largest time-step, diverges and is no longer constant.
 
 \subsection{Escaping atoms}
 In the previous section, the atoms were place a distance of $4$~Å apart. In this section one investigates the time-evolution if the Argon atoms are placed a distance $3$~Å apart.
