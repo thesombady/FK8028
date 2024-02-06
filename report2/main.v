@@ -2,6 +2,7 @@ import math // For math functions
 import rand // For random numbers
 import os // For saving to file
 
+// Constants needed in the simulation
 const gev = 931.396 * 1e6
 
 const speed_of_light = 299_792_458
@@ -15,11 +16,13 @@ const density = 1.4 * gram_to_ev / 1e24
 const boltzman = 8.617333262145 * 1e-5
 
 
+// State enum, for the state of the simulation
 enum State {
 	bouncing
 	lattice
 }
 
+// Vector struct, for 3D vectors
 pub struct Vector {
 pub mut:
 	x f64
@@ -71,6 +74,7 @@ pub fn (v Vector) to_array() []f64 {
 	return [v.x, v.y, v.z]
 }
 
+// Atom struct
 @[heap]
 pub struct Atom {
 pub:
@@ -81,6 +85,7 @@ pub mut:
 }
 
 
+// Lennard Jones potential, computes the potential and force between two atoms
 fn lennard_jones(pos1 Vector, pos2 Vector, size f64) (f64, Vector) {
 	mut r := pos1 - pos2
 
@@ -97,24 +102,34 @@ fn lennard_jones(pos1 Vector, pos2 Vector, size f64) (f64, Vector) {
 	return potential, force
 }
 
+// Minimum convesion converts the position to the minimum value
 fn minimum_convesion(pos1 f64, pos2 f64, size f64) f64 {
 	mut delta := pos2 - pos1
 	delta += -size * math.round(delta / size)
 	return delta
 }
 
+// Verlet method for the position
 fn verlet_method_position(atom Atom, acceleration Vector, dt f64) Vector {
 	return  atom.position + atom.velocity + (acceleration.div(2)).mul(math.pow(dt, 2))
 }
 
+// Verlet method for the velocity
 fn verlet_method_velocity(atom Atom, dt f64, acc_new Vector, acc_old Vector) Vector {
 	return atom.velocity + ((acc_new + acc_old).div(2)).mul(dt)
 }
 
-fn validate_boundary(pos f64, size f64) f64 {
-	return pos - math.floor(pos / size) * size
+// Validate the boundary, wrapping the atoms around the box
+fn validate_boundary(mut pos Vector, size f64) Vector {
+
+	pos.x = pos.x - math.floor(pos.x / size) * size
+	pos.y = pos.y - math.floor(pos.y / size) * size
+	pos.z = pos.z - math.floor(pos.z / size) * size
+
+	return pos 
 }
 
+// Initialize the atoms
 fn initialize(state State, number_of_atoms_1d int) ([]Atom, f64) {
 	if state == .bouncing {
 		mut atoms := []Atom{}
@@ -155,32 +170,25 @@ fn initialize(state State, number_of_atoms_1d int) ([]Atom, f64) {
 	return atoms, size
 }
 
-fn save_to_txt(all_atoms map[string]map[string]Vector, state State, z int) {
-	if state == .bouncing {
-		return
-	}	
-
-	mut file := os.create('iteration/lattice${z}.txt') or {
-		panic("Could not create file")
-	}
-	
-	mut file_string := 'Atom \t X\t Y\t Z\t Vx\t Vy\t Vz\t Pot\n'
-
-	for name, _ in all_atoms {
-		position := (all_atoms[name]["position"]).to_array()
-		velocity := (all_atoms[name]["velocity"]).to_array()
-		potential := ((all_atoms[name]["potential"]).to_array())[0]
-		file_string += '${name}\t ${position[0]}\t ${position[1]}\t ${position[2]}\t ${velocity[0]}\t ${velocity[1]}\t ${velocity[2]}\t ${potential}\n'
-	}
-
-	file.write(file_string.bytes()) or {
-		panic("Could not write to file")
-	}
-}
-
+// Save to csv: Save the position, velocity and potential energy of the atoms to a csv file
 fn save_to_csv(all_atoms map[string]map[string]Vector, state State, z int) {
 	if state == .bouncing {
-		return
+		mut file := os.create('iteration/bt${z}.csv') or {
+			panic("Could not create file")
+		}
+
+		mut file_string := 'Atom, X, Y, Z, Vx, Vy, Vz, Pot\n'
+		for name, _ in all_atoms {
+			position := (all_atoms[name]["position"]).to_array()
+			velocity := (all_atoms[name]["velocity"]).to_array()
+			potential := ((all_atoms[name]["potential"]).to_array())[0]
+			file_string += '${name}, ${position[0]}, ${position[1]}, ${position[2]}, ${velocity[0]}, ${velocity[1]}, ${velocity[2]}, ${potential}\n'
+		}
+
+		file.write(file_string.bytes()) or {
+			panic("Could not write to file")
+		}
+		return 
 	}	
 
 	mut file := os.create('iteration/lattice${z}.csv') or {
@@ -201,10 +209,23 @@ fn save_to_csv(all_atoms map[string]map[string]Vector, state State, z int) {
 	}
 }
 
-fn run_simulation(state State, number_of_atoms_1d int) {
-	mut simulaton_time := 0.5e-11
+// Kinetic temperature
+// Calculates the kinetic temperature of the system given the velocities of the atoms
+fn kinetic_temperature(velocities []Vector) f64 {
+	mut sum := 0.0
+	
+	for v in velocities {
+		sum += v.norm() * v.norm()
+	}
 
-	mut dt := 5e-16
+	return sum / (3 * velocities.len) * atom_mass * boltzman
+}
+
+// Run the simulation for MD, with random velocities and PBC.
+fn run_simulation(state State, number_of_atoms_1d int) {
+	mut simulaton_time := 1e-12
+
+	mut dt := 1e-15
 
 	mut atoms, size := initialize(state, number_of_atoms_1d)
 
@@ -252,9 +273,7 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 		for i in 0..atoms.len {
 			name := atoms[i].name
 			mut pos := verlet_method_position(atoms[i], accelerations[i], dt)
-			pos.x = validate_boundary(pos.x, size)
-			pos.y = validate_boundary(pos.y, size)
-			pos.z = validate_boundary(pos.z, size)
+			pos = validate_boundary(mut pos, size)
 
 			atoms[i].position = pos
 
@@ -293,12 +312,35 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 				new_force += force_
 			}
 
+
 			atoms[i].velocity = verlet_method_velocity(atoms[i], dt, new_force.div(atom_mass), accelerations[i])
 			
-			all_atoms[name]["velocity"] = atoms[i].velocity
 			all_atoms[name]["potential"] = potential
 
 			accelerations_new[i] = new_force.div(atom_mass)
+		}
+
+		mut velocities := []Vector{len: atoms.len}
+
+		for i in 0..atoms.len {
+			velocities[i] = atoms[i].velocity
+		}
+
+		if t < 1e-15 {
+			temperature := kinetic_temperature(velocities)
+
+			mut new_velocites := []Vector{len: atoms.len}
+
+			for i in 0..atoms.len {
+				new_velocites[i] = atoms[i].velocity.mul(math.sqrt(94.4 / temperature))
+			}
+			velocities = new_velocites.clone()
+			new_velocites.clear()
+		}
+
+
+		for i in 0..atoms.len { 
+			all_atoms[atoms[i].name]["velocity"] = velocities[i]
 		}
 
 		accelerations = accelerations_new.clone()
@@ -311,31 +353,8 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 		z += 1	
 	}
 
-
 }
 
 fn main() {
-	//dump(atom_mass)
-	//dump(gev)
-	//dump(gram_to_ev)
-	//dump(speed_of_light)
-
 	run_simulation(State.lattice, 5)
-
-	/*
-	potential, force := lennard_jones(Vector.new(6.07, 0.0, 0.0), Vector.new(0.07, 0.0, 0.0), 10.0)
-
-	pos := verlet_method_position(Atom { name: "Ar:0", position: Vector.new(0.07, 0.0, 0.0), velocity: Vector.new(0.0, 0.0, 0.0) }, force.div( atom_mass ) , 1e-15)
-	_, newforce := lennard_jones(pos, Vector.new(6.07, 0.0, 0.0), 10.0)
-	vel := verlet_method_velocity(Atom { name: "Ar:0", position: Vector.new(0.07, 0.0, 0.0), velocity: Vector.new(0.0, 0.0, 0.0) }, 1e-15, newforce.div(atom_mass), force.div(atom_mass))
-	dump(force)
-	//dump(pos)
-	//dump(newforce)
-	//dump(vel)
-
-	dump(atom_mass)
-
-	*/
 }
-
-
