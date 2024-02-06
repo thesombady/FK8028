@@ -267,6 +267,7 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, state: State, dt = 1e-15
 
         potential, force1 = LennardJones(atom1.position, atom2.position)
         force2 = - force1 # Newtons third law
+        print(force1)
 
         VerletMethodPosition(atom1, dt, force1)
         VerletMethodPosition(atom2, dt, force2)
@@ -282,6 +283,8 @@ def runSimulation(plotSim: bool, plotHamiltonian: bool, state: State, dt = 1e-15
 
         VerletMethodVelocity(atom1, dt, newForce1, force1)
         VerletMethodVelocity(atom2, dt, newForce2, force2)
+
+        print(atom1.velocity)
 
         Potential.append(potential)
 
