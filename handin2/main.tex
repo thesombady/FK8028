@@ -170,14 +170,14 @@ Describe in detail how the force is calculated for a given atom, say $i = 1$, at
 \newparagraph
 \textbf{Answer:} The force between to particles $i$ and $j$ exerted by the Lennard-Jones potential can be written as:
 \begin{align*}
-    \mathbf{F}_{i,j} &= -4\epsilon\left(12\cdot\left(\frac{\sigma}{\abs{\mathbf{r}_i - \mathbf{r}_j}^2}\right)^{12} - 6\cdot\left(\frac{\sigma}{\abs{\mathbf{r}_i - \mathbf{r}_j}^2}\right)^{6}\right)\frac{\mathbf{r}_i-\mathbf{r}_j}{\abs{\mathbf{r}_i - \mathbf{r}_j}^2}.
-\end{align*}Thus, the force exerted by a Lennard-Jones potential on particle $i$ form all other particles $j$ can be written as:
+    \mathbf{F}_{i,j} &= -4\epsilon\left(12\cdot\left(\frac{\sigma}{\abs{\Delta\mathbf{r}_{i,j}}^2}\right)^{12} - 6\cdot\left(\frac{\sigma}{\abs{\Delta\mathbf{r}_{i,j}}^2}\right)^{6}\right)\frac{\Delta\mathbf{r}_{i,j}}{\abs{\Delta\mathbf{r}_{i,j}}^2}.
+\end{align*}Here, $\Delta\mathbf{r}_{i,j}$ is the distance between closes neighboring atoms in each image; we approximate that the interaction is dominated by the closes pair in each image. Thus, we say that there exist $\rho\cdot N$ images in each image.Thus, the force exerted by a Lennard-Jones potential on particle $i$ form all other particles $j$ can be written as:
 \begin{align*}
     \mathbf{F}_i &= \sum_{j\neq i}\mathbf{F}_{i,j}.
 \end{align*}Hence, if $i = 1$ and one computes the sum of the forces exerted by all other particles, the expression reduces to:
 \begin{align*}
-    \mathbf{F}_1 &= \sum_{j = 2}^N\mathbf{F}_{1,j}.
-\end{align*}This has a time-complexity of $\mathcal{O}(N)$, and thus computing the force on all particles has a time-complexity of $\mathcal{O}(N^2)$.
+    \mathbf{F}_1 &= \sum_{j = 2}^{N\cdot\rho}\mathbf{F}_{1,j}.
+\end{align*}This has a time-complexity of $\mathcal{O}(N\cdot\rho)$ for finding the force exerted by all other particles on particle $1$.
 \subsection*{3}
 Describe in detail how different operations in the molecular dynamics algorithm of the hard sphere gas scales (both in terms of CPU time and CPU memory) with the number of atoms.
 
