@@ -7,6 +7,8 @@ GEV_CONVERSION = 931.394 * 10**6 # eV/c^2
 
 ATOM_MASS = 39.948 * GEV_CONVERSION / (SPEED_OF_LIGHT * 1e10)**2 # eVs^2/Å^2
 
+BOLTZMANN = 8.617333262145 * 10**-5 # eV/K
+
 
 def load(path: str):
     with open(path, 'r') as f:
@@ -44,34 +46,24 @@ def load(path: str):
                 cellis.append(float(cell[i]))
             rows.append(cellis)
         pos_info.append(np.array(rows))
-
     
     return np.array(pos_info)
 
-def load_single(path: str):
+def load_array(path: str):
     with open(path, 'r') as f:
         content = f.read()
 
-    pos_info = []
     content = content.split('\n')[:-1]
-    potential = []
+    rows = []
     for i in range(len(content)):
         element = content[i].split('\t')
-        total_potential = 0
+        row = []
         for j in range(len(element)):
-            total_potential += float(element[j])
-
-        potential.append(total_potential)
+            row.append(float(element[j]))
+        rows.append(np.array(row))
     
-    return np.array(potential)
+    return np.array(rows)
 
-def load_temp(path: str):
-    with open(path, 'r') as f:
-        content = f.read()
-
-    content = content.split('\n')[:-1]
-
-    return np.array([float(i) for i in content])
 
 def plot(pos):
     shape = pos.shape
@@ -85,39 +77,57 @@ def plot(pos):
 
 
 def plot_energy(potential, velocity):
+    dt = 1e-15
     plt.title('Energy of the system')
-    ts = np.array([i for i in range(len(potential))]) * 1e-15
+    ts = np.array([i for i in range(len(potential))]) * dt
+    kinetic = np.array([sum(velocity[i]) for i in range(len(velocity))])
     plt.plot(ts, potential, label='$\mathcal{V}$')
-    kinetic = []
-    for i in range(len(velocity)):
-        vel = 0.0
-        for j in range(len(velocity[i])):
-            vel += np.linalg.norm(velocity[i][j])**2
-        kinetic.append(vel)
-    kinetic = np.array(kinetic) * 0.5 * ATOM_MASS
     plt.plot(ts, kinetic, label='$\mathcal{K}$')
     plt.plot(ts, 2 * kinetic + potential, label='$\mathcal{H}$')
     plt.xlabel('Time (s)')
     plt.ylabel('Energy (eV)')
     plt.legend()
+    #plt.savefig('energy.png')
     plt.show()
 
 
-def plot_temperature(temperature):
+def plot_temperature(velocities):
     plt.title('Temperature of the system')
-    ts = np.array([i for i in range(len(temperature))]) * 1e-15
-    plt.plot(ts[2000:], temperature[2000:], label='Temperature')
+    dt = 1e-15
+    ts = np.array([i for i in range(len(velocities))]) * dt
+    kinetic = np.array([sum(velocities[i]) for i in range(len(velocities))])
+    temperature = kinetic * 2 / (3 * len(velocities[0]) * BOLTZMANN)
+    plt.plot(ts[2000:], temperature[2000:], label='$T$')
+    plt.title('Temperature of the system')
     plt.xlabel('Time (s)')
     plt.ylabel('Temperature (K)')
     plt.legend()
-    plt.savefig('temperature.png')
     #plt.show()
+    plt.savefig('temperature.png')
 
+def plot_radial(radial):
+    print(radial.shape)
+    size = 18.09 # Å 
+    dt = 1e-15
+    rs = np.linspace(0, size, len(radial[0]))
+    plt.title('Radial distribution function')
+    for t in [0, 2000, 5000, 10000, 15000]:
+        plt.plot(rs, radial[t], label=f't={t * dt:.1e}')
+    plt.legend()
+    plt.xlabel('r (Å)')
+    plt.ylabel('g(r)')
+    plt.grid()
+    plt.savefig('radial.png')
 
 if __name__ == '__main__':
     #pos = load('lattice_pos.txt')
-    #vel = load('lattice_vel.txt')
-    #pot = load_single('lattice_pot.txt')
-    temp = load_temp('lattice_temp.txt')
+    vel = load_array('lattice_vel.txt')
+    pot = load_array('lattice_pot.txt')
+    pot = np.array([sum(pot[i]) for i in range(len(pot))])
+    plot_energy(pot, vel)
+    #plot_temperature(vel)
+    #temp = load_temp('lattice_temp.txt')
     #plot_energy(pot, vel)
-    plot_temperature(temp)
+    #plot_temperature(temp)
+    #radial = load_array('lattice_hist.txt')
+    #plot_radial(radial)

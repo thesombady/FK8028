@@ -42,11 +42,7 @@ pub mut:
 
 // Lennard Jones potential, computes the potential and force between two atoms
 fn lennard_jones(pos1 Vector, pos2 Vector, size f64) (f64, Vector) {
-	mut r := pos1 - pos2
-
-	r.x = minimum_convesion(pos1.x, pos2.x, size)
-	r.y = minimum_convesion(pos1.y, pos2.y, size)
-	r.z = minimum_convesion(pos1.z, pos2.z, size)
+	r := minimum_convesion_vector(pos1, pos2, size)
 
 	delta := math.pow(3.4 / r.norm(), 6)
 
@@ -58,12 +54,6 @@ fn lennard_jones(pos1 Vector, pos2 Vector, size f64) (f64, Vector) {
 }
 
 // Minimum convesion converts the position to the minimum value
-fn minimum_convesion(pos1 f64, pos2 f64, size f64) f64 {
-	mut delta := pos2 - pos1
-	delta += -size * math.round(delta / size)
-	return delta
-}
-
 fn minimum_convesion_vector(pos1 Vector, pos2 Vector, size f64) Vector {
 	mut delta := pos2 - pos1
 	delta.x += -size * math.round(delta.x / size)
@@ -176,23 +166,25 @@ fn save_iteration(mut file os.File, v []Vector) {
 	}
 }
 
+// Computes the histogram for two atoms
 fn compute_histogram(atom1 Atom, atom2 Atom, mut histogram []f64, dr f64, size f64) {
-	mut r := atom1.position - atom2.position
-
-	r.x = minimum_convesion(atom1.position.x, atom2.position.x, size)
-	r.y = minimum_convesion(atom1.position.y, atom2.position.y, size)
-	r.z = minimum_convesion(atom1.position.z, atom2.position.z, size)
+	r := minimum_convesion_vector(atom1.position, atom2.position, size)
 
 	idx := int(r.norm() / dr)
 
 	histogram[idx] += 1
 }
 
-fn divide_array(arr1 []f64, rs_squared f64, factor f64) []f64 {
+// Divide two arrays of equal length element-wise and multipy by a factor
+fn divide_array(arr1 []f64, arr2 []f64, factor f64) []f64 {
+	if arr1.len != arr2.len {
+		panic("The arrays must have the same length")
+	}
+
 	mut result := []f64{len: arr1.len}
 
 	for i in 0..arr1.len {
-		result[i] = factor * arr1[i] / rs_squared
+		result[i] = factor * arr1[i] / ( arr2[i] * arr2[i] ) 
 	}
 
 	return result
@@ -219,10 +211,42 @@ fn save_temp(mut file os.File, f f64) {
 	}
 }
 
+fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64, atoms []Atom, size f64) {
+	mut buffer := map[string]Placeholder{}
+	for i in 0..atoms.len {
+
+		mut potential := 0.0
+		mut force := Vector.new(0.0, 0.0, 0.0)
+
+		inner: for j in 0..atoms.len {
+			if i == j {
+				continue inner
+			}
+			if '${j}:${i}' in buffer {
+				potential += buffer['${j}:${i}'].potential
+				force -= buffer['${j}:${i}'].force	
+			} else {
+				potential_, force_ := lennard_jones(atoms[i].position, atoms[j].position, size)
+				potential += potential_
+				force += force_
+				buffer['${i}:${j}'] = Placeholder {
+					force: force_,
+					potential: potential_
+				}
+			}
+		}
+
+		new_accelerations[i] += force.div(atom_mass)
+		all_potential[i] = potential
+	}
+	buffer.clear()
+}
+
+
 // Run the simulation for MD with PBC
 // : state { lattice || bouncing } - The state of the simulation
 // : number_of_atoms_1d { int } the number of atoms in one dimension when using the lattice state.
-fn run_simulation(state State, number_of_atoms_1d int) {
+fn run_simulation(state State, number_of_atoms_1d int)! {
 
 	mut dt := 1e-15
 
@@ -238,43 +262,21 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 	mut accelerations := []Vector{len: atoms.len}
 
 	mut all_position := []Vector{len: atoms.len}
+
 	mut all_velocity := []Vector{len: atoms.len}
+
 	mut all_potential := []f64{len: atoms.len, init: 0.0}
 
 	mut histogram := []f64{len: number_of_bins, init: 0.0}
 
-	dr := f64(size) / f64(number_of_bins) // Make sure that we have the correct type
+	dr := f64(size) / f64(number_of_bins) // Casting to allow floating point division
 
-	rs := []f64{len: number_of_bins, init: index * dr}
+	rs := []f64{len: number_of_bins, init: index * dr + 1e-5} // Small offset to avoid division by zero
 
-	mut rs_squared := 0.0
-
-	for r in rs {
-		rs_squared += r * r
-	}
-
-	rs_squared = math.sqrt(rs_squared)
-	
 	mut fixed_temperature := 0.0
 
 	// Compute the initial acceleration
-	for i in 0..atoms.len {
-		mut potential := 0.0
-		mut force := Vector.new(0.0, 0.0, 0.0)
-		for j in 0..atoms.len {
-			if i != j {
-				potential_, force_ := lennard_jones(atoms[i].position, atoms[j].position, size)
-				potential += potential_
-				force += force_
-				compute_histogram(atoms[i], atoms[j], mut histogram, dr, size)
-			}
-		}
-
-		accelerations[i] += force.div(atom_mass)
-
-		all_potential[i] = potential
-		
-	}
+	compute_interactions(mut accelerations, mut all_potential, atoms, size)
 
 	// Normalize the histogram
 
@@ -286,7 +288,7 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 
 	factor := math.pow(size, 3) / (f64(atoms.len * 4) * math.pi * dr)
 
-	mut g := divide_array(histogram, rs_squared, factor)
+	mut g := divide_array(histogram, rs, factor)
 
 	for i in 0..atoms.len {
 		all_position[i] = atoms[i].position
@@ -301,51 +303,35 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 		s = 'lattice'
 	}
 
-	mut file_pos := os.create('${s}_pos.txt') or {
-		panic("Could not create pos file")
-	}
-
-	mut file_vel := os.create('${s}_vel.txt') or {
-		panic("Could not create pos file")
-	}
-
-	mut file_pot := os.create('${s}_pot.txt') or {
-		panic("Could not create pos file")
-	}
-
-	mut file_temp := os.create('${s}_temp.txt') or {
-		panic("Could not create pos file")
-	}
-
-	mut file_hist := os.create('${s}_hist.txt') or {
-		panic("Could not create pos file")
-	}
+	mut file_pos := os.create('${s}_pos.txt')!
+	mut file_vel := os.create('${s}_vel.txt')!
+	mut file_pot := os.create('${s}_pot.txt')!
+	mut file_hist := os.create('${s}_hist.txt')!
 
 	defer { // Defer statement to close the file towards the end
 		file_pos.close()
 		file_vel.close()
 		file_pot.close()
-		file_temp.close()
 		file_hist.close()
 	}
 
-	save_array(mut file_hist, g)
 
 	// Save the initial data, and then all the other simulated data.
+	save_array(mut file_hist, g)
 
 	// Simulation loop 
 	for ts := 0; ts < simulation_time; ts ++ { 
 
-		t := ts * dt
+		// Save the positions, velocities, potential and temperature to a file
+		mut temp_velocity := []f64{len: atoms.len}
 
-		// Save the positions, velocities and potential to a file
+		for i in 0..atoms.len {
+			temp_velocity[i] = math.pow(all_velocity[i].norm(), 2) * atom_mass * 0.5
+		}
 
 		save_iteration(mut file_pos, all_position)
-		save_iteration(mut file_vel, all_velocity)
+		save_array(mut file_vel, temp_velocity)
 		save_array(mut file_pot, all_potential)
-
-		fixed_temperature = kinetic_temperature(all_velocity)
-		save_temp(mut file_temp, fixed_temperature)
 
 		// Update position
 		for i in 0..atoms.len {
@@ -359,45 +345,19 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 			atoms[i].position = new_position
 		}
 
-		mut computed := map[string]Placeholder{}
-
 		mut new_accelerations := []Vector{len: atoms.len}
-
-		for i in 0..atoms.len {
-
-			mut potential := 0.0
-			mut force := Vector.new(0.0, 0.0, 0.0)
-
-			inner: for j in 0..atoms.len {
-				if i == j {
-					continue inner
-				}
-				if '${j}:${i}' in computed {
-					potential = computed['${j}:${i}'].potential
-					force -= computed['${j}:${i}'].force	
-				} else {
-					potential_, force_ := lennard_jones(atoms[i].position, atoms[j].position, size)
-					potential += potential_
-					force += force_
-					computed['${i}:${j}'] = Placeholder {
-						force: force_,
-						potential: potential_
-					}
-				}
-			}
-
-			new_accelerations[i] += force.div(atom_mass)
-			all_potential[i] = potential
-		}
-
-		computed.clear()
+		compute_interactions(mut new_accelerations, mut all_potential, atoms, size)
 
 		// Update velocity
-		
 		for i in 0..atoms.len {
 			all_velocity[i] = verlet_method_velocity(atoms[i], dt, new_accelerations[i], accelerations[i])	
 			atoms[i].velocity = all_velocity[i] // If we rescale, we override the current velocity
 		}
+
+		// Overide the old acceleration with the new one
+		accelerations = new_accelerations.clone()
+
+		new_accelerations.clear() // clear the buffer so that we have no memory-leak
 
 		// Rescaling the velocities to keep the temperature constant
 		if ts < 2000 && ts % 50 == 0 {
@@ -410,14 +370,9 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 			}
 		} 
 
-		// Overide the old acceleration with the new one
-		accelerations = new_accelerations.clone()
-
-		new_accelerations.clear() // clear the buffer so that we have no memory-leak
-
+		
 
 		// Clear the histogram each iteration
-
 		histogram.reset() 
 	
 		// Compute the histogram
@@ -430,15 +385,14 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 		}
 
 		// Normalize the histogram
-
 		for i in 0..histogram.len {
 			histogram[i] /= 2.0 * f64(atoms.len)
 		}
 
 		// Compute the radial distribution function
+		g = divide_array(histogram, rs, factor)
 
-		g = divide_array(histogram, rs_squared, factor)
-
+		// Save the radial distribution function to a file
 		save_array(mut file_hist, g)
 
 		println('Completed ${(f64(ts) / f64(simulation_time) * 100):.2}%')
@@ -447,5 +401,7 @@ fn run_simulation(state State, number_of_atoms_1d int) {
 }
 
 fn main() {
-	run_simulation(State.lattice, 5)
+	run_simulation(State.lattice, 5) or {
+		panic("Could not run the simulation")
+	}
 }
