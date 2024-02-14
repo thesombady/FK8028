@@ -6,17 +6,11 @@ import vector { Vector } // Moved the vector to a separate file
 
 // Constants needed in the simulation
 const gev = 931.396 * 1e6
-
 const speed_of_light = 299_792_458
-
 const gram_to_ev = 5.609588845 * 1e32 / math.pow(speed_of_light * 1e10, 2)
-
 const atom_mass = 39.948 * gev / math.pow(speed_of_light * 1e10, 2)
-
 const density = 1.4 * gram_to_ev / 1e24
-
 const boltzman = 8.617333262145 * 1e-5
-
 const number_of_bins = 100
 
 
@@ -98,7 +92,7 @@ fn initialize(state State, number_of_atoms_1d int) !([]Atom, f64) {
 
 	spacing := size / (number_of_atoms_1d - 1) * 0.8 // * 0.8
 
-	mut average_velocity := Vector.new(0.0, 0.0, 0.0)
+	mut average_velocity := Vector.zero()
 
 	for i:= 0; i < number_of_atoms_1d; i++ {
 		for j:= 0; j < number_of_atoms_1d; j++ {
@@ -166,6 +160,7 @@ fn compute_histogram(atom1 Atom, atom2 Atom, mut histogram []f64, dr f64, size f
 }
 
 // Divide two arrays of equal length element-wise and multipy by a factor
+// The second array is squared
 fn divide_array(arr1 []f64, arr2 []f64, factor f64) []f64 {
 	if arr1.len != arr2.len {
 		panic("The arrays must have the same length")
@@ -195,7 +190,7 @@ fn save_array(mut file os.File, v []f64) {
 	}
 }
 
-// Computes the interaction between all atoms in the system.
+// Computes the interaction between all atoms in the system, with the lennard-jones potential
 fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64, atoms []Atom, size f64) {
 	mut buffer := map[string]Buffer{}
 	for i in 0..atoms.len {

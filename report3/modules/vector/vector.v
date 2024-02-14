@@ -13,6 +13,10 @@ pub fn Vector.new(x f64, y f64, z f64) Vector {
 	return Vector { x: x, y: y, z: z }
 }
 
+pub fn Vector.zero() Vector {
+	return Vector { x: 0.0, y: 0.0, z: 0.0 }
+}
+
 @[inline]
 pub fn (v Vector) + (u Vector) Vector {
 	return Vector { x: v.x + u.x, y: v.y + u.y, z: v.z + u.z }
