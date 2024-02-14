@@ -76,9 +76,9 @@ def plot(pos):
     plt.show()
 
 
-def plot_energy(potential, velocity):
+def plot_energy(potential, velocity, title):
     dt = 1e-15
-    plt.title('Energy of the system')
+    plt.title(title)
     ts = np.array([i for i in range(len(potential))]) * dt
     kinetic = np.array([sum(velocity[i]) for i in range(len(velocity))])
     plt.plot(ts, potential, label='$\mathcal{V}$')
@@ -87,7 +87,12 @@ def plot_energy(potential, velocity):
     plt.xlabel('Time (s)')
     plt.ylabel('Energy (eV)')
     plt.legend()
-    #plt.savefig('energy.png')
+    if 'bouncing' in title:
+        #plt.savefig('energy{}.png'.format{bouncing})
+        ...
+    else:
+        #plt.savefig('energy{}.png'.format{lattice})
+        ...
     plt.show()
 
 
@@ -121,10 +126,10 @@ def plot_radial(radial):
 
 if __name__ == '__main__':
     #pos = load('lattice_pos.txt')
-    vel = load_array('lattice_vel.txt')
-    pot = load_array('lattice_pot.txt')
+    vel = load_array('bouncing_vel.txt')
+    pot = load_array('bouncing_pot.txt')
     pot = np.array([sum(pot[i]) for i in range(len(pot))])
-    plot_energy(pot, vel)
+    plot_energy(pot, vel, 'Energy of the bouncing test')
     #plot_temperature(vel)
     #temp = load_temp('lattice_temp.txt')
     #plot_energy(pot, vel)

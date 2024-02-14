@@ -26,7 +26,8 @@ enum State {
 	lattice
 }
 
-struct Placeholder {
+// Buffer to keep track of already computed interactions
+struct Buffer {
 	force Vector
 	potential f64
 }
@@ -74,18 +75,16 @@ fn verlet_method_velocity(atom Atom, dt f64, acc_new Vector, acc_old Vector) Vec
 
 // Validate the boundary, wrapping the atoms around the box
 fn validate_boundary(mut pos Vector, size f64) Vector {
-
 	pos.x = pos.x - math.floor(pos.x / size) * size
 	pos.y = pos.y - math.floor(pos.y / size) * size
 	pos.z = pos.z - math.floor(pos.z / size) * size
-
 	return pos 
 }
 
 // Initialize the atoms
 // : State { Bouncing || Lattice }
 // : number_of_atoms_1d { int }
-fn initialize(state State, number_of_atoms_1d int) ([]Atom, f64) {
+fn initialize(state State, number_of_atoms_1d int) !([]Atom, f64) {
 	if state == .bouncing {
 		mut atoms := []Atom{}
 		atoms << Atom { position: Vector.new(0.07, 0.0, 0.0), velocity: Vector.new(0.0, 0.0, 0.0) }
@@ -104,15 +103,9 @@ fn initialize(state State, number_of_atoms_1d int) ([]Atom, f64) {
 	for i:= 0; i < number_of_atoms_1d; i++ {
 		for j:= 0; j < number_of_atoms_1d; j++ {
 			for k:= 0; k < number_of_atoms_1d; k++ {
-				vx := rand.f64_in_range(-1.0, 1.0) or {
-					panic("Could not generate random number")
-				}
-				vy := rand.f64_in_range(-1.0, 1.0) or {
-					panic("Could not generate random number")
-				}
-				vz := rand.f64_in_range(-1.0, 1.0) or {
-					panic("Could not generate random number")
-				}
+				vx := rand.f64_in_range(-1.0, 1.0)!
+				vy := rand.f64_in_range(-1.0, 1.0)!
+				vz := rand.f64_in_range(-1.0, 1.0)!
 				pos := Vector { x: i * spacing, y: j * spacing, z: k * spacing}
 				velocity := Vector { x: vx, y: vy, z: vz }.mul(1e-10) // Scaling such that the initial velocity is in Å/s
 				atoms << Atom { position: pos, velocity: velocity }
@@ -134,7 +127,6 @@ fn initialize(state State, number_of_atoms_1d int) ([]Atom, f64) {
 // Kinetic temperature
 // Calculates the kinetic temperature of the system given the velocities of the atoms
 fn kinetic_temperature(velocities []Vector) f64 {
-
 	mut sum := 0.0
 
 	for v in velocities {
@@ -155,11 +147,11 @@ fn write_to_string(v []Vector) string {
 			s += '[${xyz[0]}, ${xyz[1]}, ${xyz[2]}]'
 		}
 	}
-
+	
 	return s
 }
 
-// Save the iteration to a file (positions and velocities)
+// Save the iteration to a file (positions)
 fn save_iteration(mut file os.File, v []Vector) {
 	file.writeln(write_to_string(v)) or {
 		panic("Could not write to file")
@@ -169,9 +161,7 @@ fn save_iteration(mut file os.File, v []Vector) {
 // Computes the histogram for two atoms
 fn compute_histogram(atom1 Atom, atom2 Atom, mut histogram []f64, dr f64, size f64) {
 	r := minimum_convesion_vector(atom1.position, atom2.position, size)
-
 	idx := int(r.norm() / dr)
-
 	histogram[idx] += 1
 }
 
@@ -190,7 +180,7 @@ fn divide_array(arr1 []f64, arr2 []f64, factor f64) []f64 {
 	return result
 }
 
-// Save the iteration to a file (potential and temperature)
+// Save the iteration to a file (potential)
 fn save_array(mut file os.File, v []f64) {
 	mut s := ''
 	for j in 0..v.len {
@@ -205,14 +195,9 @@ fn save_array(mut file os.File, v []f64) {
 	}
 }
 
-fn save_temp(mut file os.File, f f64) {
-	file.writeln('${f}') or {
-		panic("Could not write to file")
-	}
-}
-
+// Computes the interaction between all atoms in the system.
 fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64, atoms []Atom, size f64) {
-	mut buffer := map[string]Placeholder{}
+	mut buffer := map[string]Buffer{}
 	for i in 0..atoms.len {
 
 		mut potential := 0.0
@@ -229,7 +214,7 @@ fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64,
 				potential_, force_ := lennard_jones(atoms[i].position, atoms[j].position, size)
 				potential += potential_
 				force += force_
-				buffer['${i}:${j}'] = Placeholder {
+				buffer['${i}:${j}'] = Buffer {
 					force: force_,
 					potential: potential_
 				}
@@ -247,11 +232,8 @@ fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64,
 // : state { lattice || bouncing } - The state of the simulation
 // : number_of_atoms_1d { int } the number of atoms in one dimension when using the lattice state.
 fn run_simulation(state State, number_of_atoms_1d int)! {
-
 	mut dt := 1e-15
-
-	mut atoms, size := initialize(state, number_of_atoms_1d)
-
+	mut atoms, size := initialize(state, number_of_atoms_1d)!
 	mut simulation_time := 20000
 
 	if state == .bouncing {
@@ -259,14 +241,11 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		dt = 5e-15
 	}
 
+	// Initialize the acceleration, position, velocity, potential and histogram for saving
 	mut accelerations := []Vector{len: atoms.len}
-
 	mut all_position := []Vector{len: atoms.len}
-
 	mut all_velocity := []Vector{len: atoms.len}
-
 	mut all_potential := []f64{len: atoms.len, init: 0.0}
-
 	mut histogram := []f64{len: number_of_bins, init: 0.0}
 
 	dr := f64(size) / f64(number_of_bins) // Casting to allow floating point division
@@ -279,15 +258,12 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 	compute_interactions(mut accelerations, mut all_potential, atoms, size)
 
 	// Normalize the histogram
-
 	for i in 0..histogram.len {
 		histogram[i] /= 2.0 * f64(atoms.len)
 	}
 
 	// Compute the radial distribution function
-
 	factor := math.pow(size, 3) / (f64(atoms.len * 4) * math.pi * dr)
-
 	mut g := divide_array(histogram, rs, factor)
 
 	for i in 0..atoms.len {
@@ -315,7 +291,6 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		file_hist.close()
 	}
 
-
 	// Save the initial data, and then all the other simulated data.
 	save_array(mut file_hist, g)
 
@@ -335,13 +310,9 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 
 		// Update position
 		for i in 0..atoms.len {
-   
 			mut new_position := verlet_method_position(atoms[i], accelerations[i], dt)
-
 			new_position = validate_boundary(mut new_position, size)
-
 			all_position[i] = new_position 
-
 			atoms[i].position = new_position
 		}
 
@@ -360,7 +331,7 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		new_accelerations.clear() // clear the buffer so that we have no memory-leak
 
 		// Rescaling the velocities to keep the temperature constant
-		if ts < 2000 && ts % 50 == 0 {
+		if ts < 2000 && ts % 50 == 0 && state == .lattice {
 			temperature := kinetic_temperature(all_velocity)
 			//dump(temperature)
 			mut scaling_factor := math.sqrt(94.4 / temperature) // Target temperature is 94.4 K
@@ -369,8 +340,6 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 				atoms[j].velocity = all_velocity[j]
 			}
 		} 
-
-		
 
 		// Clear the histogram each iteration
 		histogram.reset() 
@@ -401,7 +370,7 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 }
 
 fn main() {
-	run_simulation(State.lattice, 5) or {
+	run_simulation(State.bouncing, 5) or {
 		panic("Could not run the simulation")
 	}
 }
