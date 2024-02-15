@@ -88,11 +88,9 @@ def plot_energy(potential, velocity, title):
     plt.ylabel('Energy (eV)')
     plt.legend()
     if 'bouncing' in title:
-        #plt.savefig('energy{}.png'.format{bouncing})
-        ...
+        plt.savefig('energy{}.png'.format('bouncing'))
     else:
-        #plt.savefig('energy{}.png'.format{lattice})
-        ...
+        plt.savefig('energy{}.png'.format('lattice'))
     plt.show()
 
 
@@ -126,13 +124,32 @@ def plot_radial(radial):
 
 if __name__ == '__main__':
     #pos = load('lattice_pos.txt')
-    vel = load_array('bouncing_vel.txt')
-    pot = load_array('bouncing_pot.txt')
-    pot = np.array([sum(pot[i]) for i in range(len(pot))])
-    plot_energy(pot, vel, 'Energy of the bouncing test')
+    #vel = load_array('lattice_vel.txt')
+    #pot = load_array('lattice_pot.txt')
+    #pot = np.array([sum(pot[i]) for i in range(len(pot))])
+    #plot_energy(pot, vel, 'Energy of the argon liquid')
     #plot_temperature(vel)
     #temp = load_temp('lattice_temp.txt')
     #plot_energy(pot, vel)
     #plot_temperature(temp)
     #radial = load_array('lattice_hist.txt')
     #plot_radial(radial)
+    """
+        Compute the specific heat capacity, C_v, of the system.
+        We skip the first 2000 steps.
+    """
+    vel = load_array('lattice_vel.txt')
+    kinetic = np.array([sum(vel[i]) for i in range(3000, len(vel))]) / 125 * 1.602 * 10 ** (-19)
+    
+    variance = np.var(kinetic)
+
+    temperature = kinetic * 2 / (3 * BOLTZMANN * 1.602 * 10 ** (-19))
+
+    average_temperature = np.mean(temperature)
+
+    c_v = (2/ (3 * BOLTZMANN * 1.602 * 10 ** (-19)) - 4 * 125 * variance / (9 * (BOLTZMANN * 1.602 * 10 ** (-19)) ** 3 * average_temperature ** 2)) ** (-1)
+
+    print(c_v * 6.022 * 10**(23))
+
+        
+

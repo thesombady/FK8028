@@ -254,7 +254,7 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 
 	// Normalize the histogram
 	for i in 0..histogram.len {
-		histogram[i] /= 2.0 * f64(atoms.len)
+		histogram[i] /= 1.0 * f64(atoms.len)
 	}
 
 	// Compute the radial distribution function
@@ -350,7 +350,7 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 
 		// Normalize the histogram
 		for i in 0..histogram.len {
-			histogram[i] /= 2.0 * f64(atoms.len)
+			histogram[i] /= 1.0 * f64(atoms.len)
 		}
 
 		// Compute the radial distribution function
@@ -365,7 +365,7 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 }
 
 fn main() {
-	run_simulation(State.bouncing, 5) or {
+	run_simulation(State.lattice, 5) or {
 		panic("Could not run the simulation")
 	}
 }
