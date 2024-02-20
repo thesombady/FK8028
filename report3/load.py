@@ -91,22 +91,29 @@ def plot_energy(potential, velocity, title):
         plt.savefig('energy{}.png'.format('bouncing'))
     else:
         plt.savefig('energy{}.png'.format('lattice'))
-    plt.show()
+    #plt.show()
+    plt.clf()
 
 
 def plot_temperature(velocities):
     plt.title('Temperature of the system')
     dt = 1e-15
-    ts = np.array([i for i in range(len(velocities))]) * dt
+    ts = (np.array([i for i in range(len(velocities))]) * dt)[3000:]
     kinetic = np.array([sum(velocities[i]) for i in range(len(velocities))])
+    print('Average kinetic energy: {}'.format(np.mean(kinetic)))
     temperature = kinetic * 2 / (3 * len(velocities[0]) * BOLTZMANN)
-    plt.plot(ts[2000:], temperature[2000:], label='$T$')
+    temperature = temperature[3000:]
+    average_temperature = np.mean(temperature)
+    print('Average temperature: {}'.format(average_temperature))
+    plt.plot(ts, temperature, label='$T$')
+    plt.plot(ts, [average_temperature for _ in range(len(ts))], label='$\langle T \\rangle$', linestyle='--')
     plt.title('Temperature of the system')
     plt.xlabel('Time (s)')
     plt.ylabel('Temperature (K)')
     plt.legend()
     #plt.show()
     plt.savefig('temperature.png')
+    plt.clf()
 
 def plot_radial(radial):
     print(radial.shape)
@@ -114,31 +121,56 @@ def plot_radial(radial):
     dt = 1e-15
     rs = np.linspace(0, size, len(radial[0]))
     plt.title('Radial distribution function')
-    for t in [0, 2000, 5000, 10000, 15000]:
+    for t in [2000, 5000, 10000, 15000]:
         plt.plot(rs, radial[t], label=f't={t * dt:.1e}')
     plt.legend()
     plt.xlabel('r (Å)')
     plt.ylabel('g(r)')
     plt.grid()
     plt.savefig('radial.png')
+    plt.clf()
+    # Computing the average of the radial distribution function, after equilibration
+
+    radial = radial[3000:]
+    average_radial = np.mean(radial, axis=0)
+
+    plt.title('Average radial distribution function')
+    plt.plot(rs, average_radial)
+    plt.xlabel('r (Å)')
+    plt.ylabel('g(r)')
+    plt.grid()
+    plt.savefig('average_radial.png')
+    plt.clf()
+
+    plt.title('Radial distribution function before equilibration')
+    for t in [0, 200, 500, 1500]:
+        plt.plot(rs, radial[t], label=f't={t * dt:.1e}')
+    plt.legend()
+    plt.ylabel('g(r)')
+    plt.xlabel('r (Å)')
+    plt.grid()
+    plt.savefig('radial_before.png')
+    plt.clf()
 
 if __name__ == '__main__':
     #pos = load('lattice_pos.txt')
-    #vel = load_array('lattice_vel.txt')
-    #pot = load_array('lattice_pot.txt')
-    #pot = np.array([sum(pot[i]) for i in range(len(pot))])
+    vel = load_array('lattice_vel.txt')
+    pot = load_array('lattice_pot.txt')
+    potential = np.array([sum(pot[i]) for i in range(len(pot))])
     #plot_energy(pot, vel, 'Energy of the argon liquid')
     #plot_temperature(vel)
-    #temp = load_temp('lattice_temp.txt')
     #plot_energy(pot, vel)
-    #plot_temperature(temp)
-    #radial = load_array('lattice_hist.txt')
-    #plot_radial(radial)
+    plot_energy(potential, vel, 'Energy of the argon liquid')
+    radial = load_array('lattice_hist.txt')
+    plot_radial(radial)
     """
         Compute the specific heat capacity, C_v, of the system.
-        We skip the first 2000 steps.
+        We skip the first 3000 steps.
     """
     vel = load_array('lattice_vel.txt')
+    pot = load_array('lattice_pot.txt')
+    potential = np.array([sum(pot[i]) for i in range(3000, len(pot))]) 
+    plot_temperature(vel)
     kinetic = np.array([sum(vel[i]) for i in range(3000, len(vel))]) / 125 * 1.602 * 10 ** (-19)
     
     variance = np.var(kinetic)
@@ -149,7 +181,10 @@ if __name__ == '__main__':
 
     c_v = (2/ (3 * BOLTZMANN * 1.602 * 10 ** (-19)) - 4 * 125 * variance / (9 * (BOLTZMANN * 1.602 * 10 ** (-19)) ** 3 * average_temperature ** 2)) ** (-1)
 
-    print(c_v * 6.022 * 10**(23))
+    print('Specific heat capacity {}'.format(c_v * 6.022 * 10**(23)))
+
+    print('Average potential energy: {}'.format(np.mean(potential[3000:])))
+
 
         
 
