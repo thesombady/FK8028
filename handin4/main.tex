@@ -1,0 +1,183 @@
+\documentclass[a4paper]{article}
+
+% --- Packages ---
+
+\usepackage{a4wide}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage[english]{babel}
+\usepackage{mdframed}
+\usepackage{systeme,}
+\usepackage{lipsum}
+\usepackage{relsize}
+\usepackage{caption}
+\usepackage{tikz}
+\usepackage{tikz-3dplot}
+\usetikzlibrary{shapes.geometric}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=newest}%1.7}
+\usepackage{harpoon}%
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{subcaption}
+\usepackage{authblk}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{chngcntr}
+\usepackage{amsthm}
+\usepackage{comment}
+\usepackage{commath}
+\usepackage{hyperref}%Might remove, adds link to each reference
+\usepackage{url}
+\usepackage{calligra}
+\usepackage{pgf}
+
+% --- Bibtex ---
+
+%\usepackage[backend = biblar,]{bibtex}
+
+%\addbibliografy(ref.bib)
+
+% --- Commands --- 
+
+\newcommand{\w}{\omega}
+\newcommand{\trace}{\text{Tr}}
+\newcommand{\grad}{\mathbf{\nabla}}
+%\newcommand{\crr}{\mathfrak{r}}
+\newcommand{\laplace}{\nabla^2}
+\newcommand{\newparagraph}{\vspace{.5cm}\noindent}
+
+% --- Math character commands ---
+
+\newcommand{\curl}[1]{\mathbf{\nabla}\times \mathbf{#1}}
+\newcommand{\dive}[1]{\mathbf{\nabla}\cdot \mathbf{#1}}
+\newcommand{\res}[2]{\text{Res}(#1,#2)}
+\newcommand{\fpartial}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\rot}[3]{\begin{vmatrix}\hat{x}&\hat{y}&\hat{z}\\\partial_x&\partial_y&\partial_z\\#1&#2&#3 \end{vmatrix}}
+\newcommand{\average}[1]{\langle #1 \rangle}
+\newcommand{\ket}[1]{|#1\rangle}
+\newcommand{\bra}[1]{\langle #1|}
+
+
+%  --- Special character commands ---
+
+\DeclareMathAlphabet{\mathcalligra}{T1}{calligra}{m}{n}
+\DeclareFontShape{T1}{calligra}{m}{n}{<->s*[2.2]callig15}{}
+\newcommand{\crr}{\mathcalligra{r}\,}
+\newcommand{\boldscriptr}{\pmb{\mathcalligra{r}}\,}
+
+
+\title{Handin 4}
+\author{Author : Andreas Evensen}
+\date{Date: \today}
+
+% --- Code ---
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\begin{document}
+
+\maketitle
+\noindent
+Consider the dynamics of a strictly linear molecule $A-B-C$, in a 1-dimensional box.
+It has a very stiff $A-B$ harmonic bond, and a very soft $B-C$ harmonic bond. The harmonic force constants are $k_{AB} = 4k_{BC}$ and $K_{AC} = 0$.
+For completeness, we say that $r_{BC}^{eq} = 1.3 r_{AB}^{eq}$. Also, the center of mass of the molecule is confined in a very soft harmonic potential energy trap at $x = 0$, i.e. $k_{CM} << k_{BC}$.
+
+\newparagraph
+The probabilities of a configuration $i$ with energy $U_i$ can be assumed to fulfill $P(i)\propto e^{-\alpha U_i}$ where $\alpha > 0$ is a known constant.
+Assume that the box is large enough such that one can ignore the boundaries, i.e. $x_{min} << x << x_{max}$.
+
+\newparagraph
+{\color{red}\textbf{1.} The only possible trail move is a displacement of an individual atom, e.g. A, B or C.}
+
+\newparagraph
+{\color{blue}\textbf{2.} There are three possible moves
+\begin{enumerate}
+    \item a displacement in an interval $[-h, h]$ of the atom $C$.
+    \item a equal displacement in the interval $[-h, h]$ of the atoms $A$ and $B$.
+    \item a small displacement in the interval $[-dh, dh]$ of the atoms $A$ and $B$ where they are moved in the opposite direction; $dh = \frac{1}{2}h$.
+\end{enumerate}
+}
+
+\subsection*{1)}
+Does the steps in {\color{red} 1.} and {\color{blue} 2.} span the same degrees of freedom for the atomic motion? Motivate your answer.
+
+\newparagraph
+\textbf{Answer: }They do span the same degree of freedom; in {\color{red} 1.} the only possible trail move is a displacement of an individual atom, while in {\color{blue} 2.} there are three possible moves, where two are coupled.
+
+\newparagraph
+If we restrict the motion to be either $h$ or $-h$ each particle has two degrees of freedom, and the total degrees of freedom is $2 + 2 + 2 = 6$.
+If we again restrict the motion to be either $h$ or $-h$ for the atoms $A$ and $B$, and $dh$ or $-dh$ for the atoms $A$ and $B$; we can compute the number of possible moves.
+For atom $A$ it can move either $h$ or $-h$, as well as $-dh$ and $dh$. However, this is coupled with the first second atom, atom $B$. And thus, the number of moves possible for the pair is $2 + 2 = 4$.
+The last atom, atom $C$, can move either $h$ or $-h$, and thus has two degrees of freedom. Thus, in total for algorithm {\color{red} 1.} and {\color{blue} 2.} there are 6 degrees of freedom, and thus span the same degrees of freedom for the atomic motion.
+
+\subsection*{2)}
+Suggest an algorithm for {\color{red} 1.} that fulfills the detailed balance.
+
+\newparagraph
+\textbf{Answer: }By detailed balance one the probability for each individual move in one configuration is the same as the probability to move back to the same position in the new configuration:
+\begin{align*}
+    \mathcal{N}(\mathbf{x})\times \pi(\mathbf{x}\to\mathbf{x}') = \mathcal{N}(\mathbf{x}')\times \pi(\mathbf{x}'\to\mathbf{x}).
+\end{align*}Here $\mathbf{x}$ represents a single particle in three dimension. A simple algorithm that would allow for this is the following:
+\begin{enumerate}
+    \item Pick one of the atom.
+    \item Pick a distance in $x\in[-h, h]$.
+    \item Make a trail move to the chosen atom to the new position. The acceptance is determined by $$a(\mathbf{x}\to\mathbf{x}')=\min\left(1,\frac{\mathcal{N}(\mathbf{x})}{\mathcal{N}(\mathbf{x}')}\right).$$
+    \item If the move is accepted, move back to 1 and repeat, else repeat from 1 without moving the atom.
+\end{enumerate}
+Even though that $\mathcal{N}(\mathbf{x})$ and $\mathcal{N}(\mathbf{x}')$ is fairly heavy to compute, one has a working algorithm that preserves detailed balance.
+
+
+
+\subsection*{3)}
+In {\color{red} 1.}, if one decreases $h$ for the displacement trail step, the fraction of accepted displacement goes up. Why is this not necessarily more efficient?
+
+\newparagraph
+\textbf{Answer: }Even though the rate of which moves are accepted, the change in energy is smaller in each step.
+Thus, more steps are usually required in order to change the system significantly. Say that you move atom $A$, which is bound by a stiff harmonic potential $U_{AB} = k_{AB}(r_{AB} - r_{AB}^{eq})$.
+Each move of $A$ would almost always decrease the potential energy (in some cases it might increase slightly).
+Thus, in order to reach the $0$ potential, one has to compute a high number of iterations in order to reach the equilibrium distance, whilst having larger step-sizes results in fewer computations for a more rapid change in the systems' configuration.
+
+
+\subsection*{4)}
+Discuss relative advantages and disadvantages of the two algorithms {\color{red} 1.} and {\color{blue} 2.}.
+
+\newparagraph
+\textbf{Answer: }As determined prior, the degrees of freedom in the two algorithms are the same.
+The second algorithm implements what is discussed in the previous task with smaller step-size for the atoms $A$ and $B$, and they are moving together. 
+But it also allows for translation of $A-B$. Which only affects the $B-C$ interaction which is weaker than the $A-B$ interaction.
+Even though the degrees of freedom is higher, the number of iterations to reach a configuration which is lowest in potential energy, is higher for the {\color{blue} second algorithm}. However, the accuracy of this method is greater since the half-moves.
+Thus, {\color{red} algorithm 1} will reach a configuration with lower energy than the initial state, but the {\color{blue} second algorithm} will reach a configuration with lower energy than the {\color{red} first algorithm} -- in more iterations.
+
+
+
+\end{document}
+ 
