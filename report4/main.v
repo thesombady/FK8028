@@ -2,7 +2,7 @@ import math // For math functions
 import rand // For random numbers
 import os // For saving to file
 
-// import vector { Vector } // Vector struct.
+import vector { Vector } // Vector struct.
 
 // Constants needed in the simulation
 const gev = 931.396 * 1e6
@@ -216,18 +216,19 @@ fn divide_array(arr1 []f64, arr2 []f64, factor f64) []f64 {
 // : file { os.File } - The file to save to
 // : v { []f64 } - The array of values to save to file
 fn save_array(mut file os.File, v []f64) {
-	mut s := ''
-	for j in 0..v.len {
-		if j < v.len - 1 {
-			s += '${v[j]}\t'
-		} else {
-			s += '${v[j]}'
-	
+	mut sum := f64(0)
+
+	for i in 0..v.len {
+		sum += v[i]
 	}
+
+	mut s := ''
+
+	s += '${sum}'
+
 	file.writeln(s) or {
 		panic("Could not write to file")
 	}
-}
 }
 
 // Computes the interaction between all atoms in the system, with the lennard-jones potential
@@ -327,19 +328,19 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 	}
 
 	//mut file_pos := os.create('${s}_pos.txt')!
-	mut file_vel := os.create('${s}_vel.txt')!
+	mut file_vel := os.create('${s}_kin.txt')!
 	mut file_pot := os.create('${s}_pot.txt')!
-	mut file_hist := os.create('${s}_radl.txt')!
+	//mut file_hist := os.create('${s}_hist.txt')!
 
 	defer { // Defer statement to close the file towards the end
 		//file_pos.close()
 		file_vel.close()
 		file_pot.close()
-		file_hist.close()
+		//file_hist.close()
 	}
 
 	// Save the initial data, and then all the other simulated data.
-	save_array(mut file_hist, g)
+	//save_array(mut file_hist, g)
 
 	// Simulation loop 
 	for ts := 0; ts < simulation_time; ts ++ { 
@@ -389,7 +390,9 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		} 
 
 		// Clear the histogram each iteration
-		histogram.reset() 
+		unsafe {
+			histogram.reset() 
+		}
 	
 		// Compute the histogram
 		for i in 0..atoms.len {
@@ -406,10 +409,10 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		}
 
 		// Compute the radial distribution function
-		g = divide_array(histogram, rs, factor)
+		//g = divide_array(histogram, rs, factor)
 
 		// Save the radial distribution function to a file
-		save_array(mut file_hist, g)
+		//save_array(mut file_hist, g)
 
 		println('Completed ${(f64(ts) / f64(simulation_time) * 100):.2}%')
 
@@ -429,94 +432,4 @@ fn main() {
 	run_simulation(State.lattice, 5) or {
 		panic("Could not run the simulation")
 	}
-}
-
-
-// Vector struct, for 3D vectors
-pub struct Vector {
-pub mut:
-	x f64
-	y f64
-	z f64
-}
-
-// Create a new vector
-// : x {f64} x component
-// : y {f64} y component
-// : z {f64} z component
-// ; {Vector} the new vector
-pub fn Vector.new(x f64, y f64, z f64) Vector {
-	return Vector { x: x, y: y, z: z }
-}
-
-// Create a new vector zero vector
-// ; {Vector} the new vector
-pub fn Vector.zero() Vector {
-	return Vector { x: 0.0, y: 0.0, z: 0.0 }
-}
-
-@[inline]
-// Add two vectors
-// : v {Vector} the first vector
-// : u {Vector} the second vector
-// ; {Vector} the sum of the two vectors
-pub fn (v Vector) + (u Vector) Vector {
-	return Vector { x: v.x + u.x, y: v.y + u.y, z: v.z + u.z }
-}
-
-
-@[inline]
-// Subtract two vectors
-// : v {Vector} the first vector
-// : u {Vector} the second vector
-// ; {Vector} the difference of the two vectors
-pub fn (v Vector) - (u Vector) Vector {
-	return Vector { x: v.x - u.x, y: v.y - u.y, z: v.z - u.z }
-}
-
-// Multiply a vector by a scalar
-// : v {Vector} the vector
-// : s {f64} the scalar
-// ; {Vector} the product of the vector and the scalar
-pub fn (v Vector) mul(s f64) Vector {
-	return Vector { x: v.x * s, y: v.y * s, z: v.z * s }
-}
-
-// Computes the norm of a vector
-// : v {Vector} the vector
-// ; {f64} the norm of the vector
-pub fn (v Vector) norm() f64 {
-	return math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
-}
-
-// Divides a vector by a scalar
-// : v {Vector} the vector
-// : s {f64} the scalar
-// ; {Vector} the division of the vector by the scalar
-pub fn (v Vector) div(s f64) Vector {
-	if s == 0.0 {
-		panic("Division by zero")
-	}
-
-	return Vector { x: v.x / s, y: v.y / s, z: v.z / s }
-}
-
-// Get the i:th component of a vector
-// : v {Vector} the vector
-// : i {int} the index
-// ; {f64} the i:th component of the vector
-pub fn (v Vector) get(i int) ?f64 {
-	return match i {
-		0 { v.x }
-		1 { v.y }
-		2 { v.z }
-		else { none }
-	}
-}
-
-// Get vector's components as an array
-// : v {Vector} the vector
-// ; {[]f64} the vector's components
-pub fn (v Vector) to_array() []f64 {
-	return [v.x, v.y, v.z]
 }
