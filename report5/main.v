@@ -2,6 +2,8 @@ import math // For math functions
 import rand // For random numbers
 import os // For saving to file
 
+rand.seed([u32(3223878742), 1732001562]) // Random seed for reproducibility
+
 // Constants needed in the simulation
 const gev = 931.396 * 1e6
 const speed_of_light = 299_792_458
