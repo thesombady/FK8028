@@ -105,7 +105,103 @@
 
 \begin{document}
 
-\maketitle
+\input{front.tex}
+
+\pagenumbering{Roman}
+\newpage
+\pagenumbering{roman}
+\setcounter{page}{1}
+\newpage
+\tableofcontents
+\newpage
+\pagenumbering{arabic}
+
+\section*{Introduction}\addcontentsline{toc}{section}{Introduction}
+In this report, the behavior of an NVT ensemble when modeled with Metropolis Monte Carlo, composed of Argon atoms, was investigated. Quantities such as: Potential energy, and position was studied.
+The position of the atoms manifested itself in the form of a radial distribution function $g(r)$, which represented the system's probability of finding an atom at a distance $r$ from another atom.
+The potential energy of the system was also studied, and the energy of the system was plotted as a function of the number of accepted moves.
+
+\newparagraph
+Quantities such as the specific heat capacity $C_v$ was computed, and the result was compared to previously obtained results.
+The simulation implemented periodic boundary conditions, and thus effectively simulated an infinite system, in this case liquid Argon.
+
+\section*{Theory \& Method}\addcontentsline{toc}{section}{Theory \& Method}
+Monte Carlo simulations are a class of algorithms that can be used to sample a molecular system.
+In contrast to molecular dynamics, Monte Carlo simulations do not require the equations of motion to be solved, and thus are computationally less expensive.
+This however implies that the Monte-Carlo simulation can not be used to simulate the time evolution of the system but rather the equilibrium state of the system.
+The energy of the system was modeled with a Lennard-Jones potential,
+\begin{align}
+    V(r) = 4\epsilon\left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^6\right],\label{eq: LJ}
+\end{align}where $r$ is the relative distance between the atoms, after assuming minimum image convention.
+The Metropolis Monte Carlo algorithm is structured in the following manner:
+\begin{enumerate}
+    \item Pick a random atom
+    \item Propose a move
+    \item Calculate the change in energy if this move was supposed to occur
+    \item Accept or reject the move depending on $\min\left(1, \exp\left[-\beta\Delta E\right]\right)$
+    \item Update the system (if move was accepted, otherwise keep the system as it was)
+\end{enumerate}This process is repeated for many iterations, such that the system reaches equilibrium.
+In contrast to molecular dynamics simulations, the Metropolis Monte Carlo algorithm is faster, it runs in $\mathcal{O}(N)$ time, where $N$ is the number of atoms in the system, per iteration\footnote{In the previously implemented Molecular dynamics simulation, the runtime was $\mathcal{O}(N^2)$ per iteration.}.
+The radial function distribution, (RDF), $g(r)$ is measurement of the probability of finding an atom at a distance $r$ from another atom, and is defined as
+\begin{align}
+    g(r_i) = \frac{V}{N}\frac{h(r_i)}{4\pi r_i^2\Delta r}.\label{eq: rdf}
+\end{align}The specific heat capacity $C_v$ is defined as:
+\begin{align}
+    C_v &= \frac{3k_b}{2} - \frac{N\sigma^2(\mathcal{V})}{k_bT^2},\label{eq: specific heat}
+\end{align}describes how the energy of the system changes with temperature, and is a measure of the system's ability to store energy.
+
+
+\section*{Result \& Discussion}\addcontentsline{toc}{section}{Result \& Discussion}
+The Monte Carlo simulation was written in V, a static typed compiler language. The simulation ran for $0.5\cdot10^6$ iterations, where the potential energy and the radial function distribution was computed every $1000$ iterations.
+This was done to ensure that the system had reached equilibrium, and that the system was ergodic. The temperature was set to $94.4$ K, as this was the temperature at which the system was previously simulated with a Molecular dynamics simulation.
+The system was constructed in such a way that the acceptance rate was $28.38$\%. This is close to the target acceptance rate $30$\%.
+
+\newparagraph
+The radial function distribution $g(r)$ was computed for each for a subset of iterations, and the average of the radial function was plotted in the figure below, fig \ref{fig: radial function}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.5]{average_radial.png}
+    \caption{Average radial function $g(r)$}
+    \label{fig: radial function}
+\end{figure}\noindent
+The peaks are located around $r = 3.7$~Å, $r=7.3$~Å, and $r = 8.7$~Å, which agrees with preciously found results; the previous results were obtained with a Molecular dynamics simulation.
+Since Monte Carlo simulations are stochastic, the RDF fluctuates around the average value, which is given by the ensemble average, since we enforce ergodicity. 
+Thus, even though this simulation is computed in the NVT ensemble, the RDF still predicts the same equilibrium state as the molecular dynamics simulation, which predicted an NVE ensemble.
+
+\newparagraph
+The potential energy of the system, modeled by a Lennard-Jones potential (eq \eqref{eq: LJ}), was used to model the energy of the system. If the energy decreased, the move was accepted, and if the energy increased, the move was accepted with a probability $\exp\left[-\beta\Delta E\right]$.
+Here $\Delta E$ is the difference in energy between the potential new configuration and the old configuration, and $\beta = \frac{1}{k_bT}$.
+The average energy of the system is computed in accordance to:
+\begin{align*}
+    \average{\mathcal{V}} = \frac{1}{n}\sum_{i=1}^n \mathcal{V}_i,
+\end{align*}where $n$ is the number of data points. This was computed to be: $\average{\mathcal{V}} = - 14.79$~eV, which is in agreement with the previously obtained results.
+The energy of the system was plotted as a function of the number of accepted moves, and the result is shown in fig \ref{fig: energy}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.45]{potential_energy.png}
+    \caption{Energy of the system as a function of accepted moves}
+    \label{fig: energy}
+\end{figure}\noindent
+As the number of accepted moves increases, the potential energy quickly equilibrates, and fluctuates around the average value.
+To ensure that the system had equilibrated, the block-average method was implemented. This is shown in the figure below:
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.4]{var_p.png}
+    \caption{Block average of the potential energy}
+    \label{fig: block average potential}
+\end{figure}\noindent
+There is a plateau around $2^{12} = 4096$ block-transforms. This indicates that the system has equilibrated, and that the potential energy indeed fluctuates around the true average of the ensemble.
+The standard deviation of the potential energy is thus computed to be $\sigma(\mathcal{V}) = 0.22$~eV. The standard deviation of $\sigma(\bar{\mathcal{V}}) = 0.02$~eV, which is signifcantly smaller.
+
+\newparagraph
+The specific heat-capacity is computed in accordance to eq \eqref{eq: specific heat}, and was found to be: 
+
+\newpage
+\section*{Conclusion}\addcontentsline{toc}{section}{Conclusion}
+In this report, the behavior of an NVT ensemble when modeled with Metropolis Monte Carlo, composed of Argon atoms, was investigated.
+The radial distribution function $g(r)$ was computed, and the potential energy of the system was studied. Both of these quantities were in agreement with previously obtained results, which were obtained with a Molecular dynamics simulation.
+As the number of accepted moves increases, the potential energy quickly equilibrates, and fluctuates around the average value, similar to the previous simulation. This is expected in the simulated ensemble.
+
 
 \end{document}
  

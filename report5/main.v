@@ -1,8 +1,8 @@
 import math // For math functions
 import rand // For random numbers
+import rand.seed // For seeding 
+import rand.pcg32 // Random generator object
 import os // For saving to file
-
-rand.seed([u32(3223878742), 1732001562]) // Random seed for reproducibility
 
 // Constants needed in the simulation
 const gev = 931.396 * 1e6
@@ -12,18 +12,20 @@ const atom_mass = 39.948 * gev / math.pow(speed_of_light * 1e10, 2)
 const density = 1.4 * gram_to_ev / 1e24
 const boltzman = 8.617333262145 * 1e-5
 const number_of_bins = 100
+const temperature = 94.4 // K
+const beta = 1 / (boltzman * temperature)
+
+
+
+struct Buffer {
+	potential f64
+}
 
 
 // State enum, for the state of the simulation
 enum State {
 	bouncing
 	lattice
-}
-
-// Buffer to keep track of already computed interactions
-struct Buffer {
-	force Vector
-	potential f64
 }
 
 // Atom struct
@@ -39,17 +41,15 @@ pub mut:
 // : pos1 { Vector } - The first position
 // : pos2 { Vector } - The second position
 // : size { f64 } - The size of the box
-// ; { f64, Vector } - The potential and force
-fn lennard_jones(pos1 Vector, pos2 Vector, size f64) (f64, Vector) {
+// ; { f64 } - The potential 
+fn lennard_jones(pos1 Vector, pos2 Vector, size f64) f64 {
 	r := minimum_convesion_vector(pos1, pos2, size)
 
 	delta := math.pow(3.4 / r.norm(), 6)
 
 	potential := 4.0 * .0104 * (delta * delta - delta)
 
-	force := r.mul(-4.0 * 0.0104 * ( 12 * delta * delta - 6 * delta) / math.pow(r.norm(), 2))
-
-	return potential, force
+	return potential
 }
 
 // Minimum convesion converts the position to the minimum value
@@ -99,7 +99,7 @@ fn validate_boundary(mut pos Vector, size f64) Vector {
 // : State { Bouncing || Lattice }
 // : number_of_atoms_1d { int }
 // ; { []Atom, f64 } - Error(The atoms and the size of the box). We propagate the error
-// 				   to the caller, so that the caller can handle the error (originates from the random number generator)
+// 	to the caller, so that the caller can handle the error (originates from the random number generator)
 fn initialize(state State, number_of_atoms_1d int) !([]Atom, f64) {
 	if state == .bouncing {
 		mut atoms := []Atom{}
@@ -231,17 +231,33 @@ fn save_array(mut file os.File, v []f64) {
 	}
 }
 
+// Save the iteration to a file (potential)
+// : file { os.File } - The file to save to
+// : v { []f64 } - The array of values to save to file
+fn save_g(mut file os.File, v []f64) {
+	mut s := ''
+	for j in 0..v.len {
+		if j < v.len - 1 {
+			s += '${v[j]}\t'
+		} else {
+			s += '${v[j]}'
+		}
+	}
+	file.writeln(s) or {
+		panic("Could not write to file")
+	}
+}
+
 // Computes the interaction between all atoms in the system, with the lennard-jones potential
 // : new_accelerations { []Vector } - The new accelerations
 // : all_potential { []f64 } - The potential
 // : atoms { []Atom } - The atoms
 // : size { f64 } - The size of the box
-fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64, atoms []Atom, size f64) {
+fn compute_interactions(mut all_potential []f64, atoms []Atom, size f64) {
 	mut buffer := map[string]Buffer{}
 	for i in 0..atoms.len {
 
 		mut potential := 0.0
-		mut force := Vector.new(0.0, 0.0, 0.0)
 
 		inner: for j in 0..atoms.len {
 			if i == j {
@@ -249,22 +265,35 @@ fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64,
 			}
 			if '${j}:${i}' in buffer {
 				potential += buffer['${j}:${i}'].potential
-				force -= buffer['${j}:${i}'].force	
 			} else {
-				potential_, force_ := lennard_jones(atoms[i].position, atoms[j].position, size)
+				potential_:= lennard_jones(atoms[i].position, atoms[j].position, size)
 				potential += potential_
-				force += force_
 				buffer['${i}:${j}'] = Buffer {
-					force: force_,
 					potential: potential_
 				}
 			}
 		}
 
-		new_accelerations[i] += force.div(atom_mass)
 		all_potential[i] = potential
 	}
 	buffer.clear()
+}
+
+// Creates a random position, validated of the boundaries in the minimum convesion function
+// : pos { Vector } - The position that we wish to 'pertubate'
+// : size { f64 } - The size of the box
+// : generator { rand.PRNG } - The random number generator
+// ; { Vector } - The new position
+fn random_position(pos Vector, size f64, mut generator rand.PRNG) Vector {
+	mut new_pos := [0.0, 0.0, 0.0]
+	mut old_pos := pos.to_array()
+	for i in 0..3 {
+		new_pos[i] = old_pos[i] + generator.f64_in_range(-0.5, 0.5) or {
+			panic('Could not generate random number for the new position')
+		}
+	}
+	mut new_position := Vector.from_array(new_pos)
+	return validate_boundary(mut new_position, size)
 }
 
 
@@ -272,19 +301,20 @@ fn compute_interactions(mut new_accelerations []Vector, mut all_potential []f64,
 // : state { lattice || bouncing } - The state of the simulation
 // : number_of_atoms_1d { int } the number of atoms in one dimension when using the lattice state.
 fn run_simulation(state State, number_of_atoms_1d int)! {
-	mut dt := 5e-15
+
+	mut rng := &rand.PRNG(pcg32.PCG32RNG{})
+
+	rng.seed(seed.time_seed_array(pcg32.seed_len)) // Random seed for reproducibility
+
 	mut atoms, size := initialize(state, number_of_atoms_1d)!
-	mut simulation_time := 30000
+	mut simulation_time := 500000 // 30000
 
 	if state == .bouncing {
 		simulation_time = 5000
-		dt = 5e-15
 	}
 
 	// Initialize the acceleration, position, velocity, potential and histogram for saving
-	mut accelerations := []Vector{len: atoms.len}
 	mut all_position := []Vector{len: atoms.len}
-	mut all_velocity := []Vector{len: atoms.len}
 	mut all_potential := []f64{len: atoms.len, init: 0.0}
 	mut histogram := []f64{len: number_of_bins, init: 0.0}
 
@@ -292,10 +322,8 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 
 	rs := []f64{len: number_of_bins, init: index * dr + 1e-5} // Small offset to avoid division by zero
 
-	mut fixed_temperature := 0.0
-
 	// Compute the initial acceleration
-	compute_interactions(mut accelerations, mut all_potential, atoms, size)
+	compute_interactions(mut all_potential, atoms, size)
 
 	for i in 0..atoms.len {
 		for j in 0..atoms.len {
@@ -312,11 +340,11 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 
 	// Compute the radial distribution function
 	factor := math.pow(size, 3) / (f64(atoms.len * 4) * math.pi * dr)
+
 	mut g := divide_array(histogram, rs, factor)
 
 	for i in 0..atoms.len {
 		all_position[i] = atoms[i].position
-		all_velocity[i] = atoms[i].velocity
 	}
 
 	mut s := ''
@@ -327,96 +355,108 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		s = 'lattice'
 	}
 
-	//mut file_pos := os.create('${s}_pos.txt')!
-	mut file_vel := os.create('${s}_kin.txt')!
+	// mut file_pos := os.create('${s}_pos.txt')!
+	// mut file_vel := os.create('${s}_kin.txt')!
 	mut file_pot := os.create('${s}_pot.txt')!
-	//mut file_hist := os.create('${s}_hist.txt')!
+	mut file_hist := os.create('${s}_hist.txt')!
 
 	defer { // Defer statement to close the file towards the end
-		//file_pos.close()
-		file_vel.close()
 		file_pot.close()
-		//file_hist.close()
+		file_hist.close()
 	}
 
 	// Save the initial data, and then all the other simulated data.
-	//save_array(mut file_hist, g)
 
+	mut total_energy := 0.0
+	for i in 0..atoms.len {
+		total_energy += all_potential[i]
+	}
+	save_array(mut file_pot, [total_energy])
+	save_g(mut file_hist, g)
+
+	mut acceptance_rate := 0
 	// Simulation loop 
-	for ts := 0; ts < simulation_time; ts ++ { 
+	inner: for ts := 0; ts < simulation_time; ts ++ { 
 
-		// Save the positions, velocities, potential and temperature to a file
-		mut temp_velocity := []f64{len: atoms.len}
-
-		for i in 0..atoms.len {
-			temp_velocity[i] = math.pow(all_velocity[i].norm(), 2) * atom_mass * 0.5
+		idx := rng.int_in_range(0, atoms.len) or {
+			panic('Could not generate random number for the atom index')
 		}
 
-		//save_iteration(mut file_pos, all_position)
-		save_array(mut file_vel, temp_velocity)
-		save_array(mut file_pot, all_potential)
+		energy_before := compute_interaction_for_single_atom(atoms, idx, size)
 
-		// Update position
+		new_position := random_position(atoms[idx].position, size, mut rng) // Validating the boundaries is done in the random_position function
+
+		mut new_energy := 0.0
+
 		for i in 0..atoms.len {
-			mut new_position := verlet_method_position(atoms[i], accelerations[i], dt)
-			new_position = validate_boundary(mut new_position, size)
-			all_position[i] = new_position 
-			atoms[i].position = new_position
-		}
-
-		mut new_accelerations := []Vector{len: atoms.len}
-		compute_interactions(mut new_accelerations, mut all_potential, atoms, size)
-
-		// Update velocity
-		for i in 0..atoms.len {
-			all_velocity[i] = verlet_method_velocity(atoms[i], dt, new_accelerations[i], accelerations[i])	
-			atoms[i].velocity = all_velocity[i] // If we rescale, we override the current velocity
-		}
-
-		// Overide the old acceleration with the new one
-		accelerations = new_accelerations.clone()
-
-		new_accelerations.clear() // clear the buffer so that we have no memory-leak
-
-		// Rescaling the velocities to keep the temperature constant
-		if ts < 2000 && ts % 40 == 0 && state == .lattice {
-			temperature := kinetic_temperature(all_velocity)
-			//dump(temperature)
-			mut scaling_factor := math.sqrt(94.4 / temperature) // Target temperature is 94.4 K
-			for j in 0..atoms.len {
-				all_velocity[j] = all_velocity[j].mul(scaling_factor)
-				atoms[j].velocity = all_velocity[j]
+			if i != idx {
+				new_energy += lennard_jones(new_position, atoms[i].position, size)
 			}
+		}
+
+		delta_energy := new_energy - energy_before
+
+		
+		acceptance_probability := math.min(1.0, math.exp(-beta * delta_energy))
+		
+		
+		accepting := (rng.f64_in_range(0.0, 1.0)! < acceptance_probability)
+
+		if accepting {
+			atoms[idx].position = new_position
+			all_position[idx] = new_position
+			total_energy += delta_energy
+			save_array(mut file_pot, [total_energy])
+			acceptance_rate++
 		} 
 
-		// Clear the histogram each iteration
-		unsafe {
-			histogram.reset() 
-		}
-	
-		// Compute the histogram
-		for i in 0..atoms.len {
-			for j in 0..atoms.len {
-				if i != j {
-					compute_histogram(atoms[i], atoms[j], mut histogram, dr, size)
-				}
+		if ts % 1000 == 0 {
+			// Clear the histogram each iteration
+			unsafe {
+				histogram.reset() 
 			}
+			total_energy = 0.0
+			for i in 0..atoms.len {
+				all_potential[i] = 0.0
+				for j in 0..atoms.len {
+					if i != j {
+						compute_histogram(atoms[i], atoms[j], mut histogram, dr, size)
+						all_potential[i] += lennard_jones(atoms[i].position, atoms[j].position, size)
+					}
+				}
+				total_energy += all_potential[i]
+			}
+
+			for i in 0..number_of_bins {
+				histogram[i] /= 1.0 * f64(atoms.len) // Normalize the histogram
+			}
+
+			// Compute the radial distribution function
+			g = divide_array(histogram, rs, factor)
+			save_g(mut file_hist, g)
 		}
-
-		// Normalize the histogram
-		for i in 0..histogram.len {
-			histogram[i] /= 1.0 * f64(atoms.len)
-		}
-
-		// Compute the radial distribution function
-		//g = divide_array(histogram, rs, factor)
-
-		// Save the radial distribution function to a file
-		//save_array(mut file_hist, g)
 
 		println('Completed ${(f64(ts) / f64(simulation_time) * 100):.2}%')
 
 	}
+	println('Acceptance rate: ${(f64(acceptance_rate) / f64(simulation_time) * 100):.2}%')
+}
+
+// Computes the potential energy for a single atom
+// : atoms { []Atom } - The atoms
+// : idx { int } - The index of the atom we want to compute the potential for
+// : size { f64 } - The size of the box
+// ; { f64 } - The potential energy for the atom at index idx
+fn compute_interaction_for_single_atom(atoms []Atom, idx int, size f64) f64 {
+	mut potential := 0.0
+	for j in 0..atoms.len {
+		if idx == j {
+			continue
+		}
+		potential += lennard_jones(atoms[idx].position, atoms[j].position, size)
+	}
+
+	return potential
 }
 
 // Main function
@@ -433,9 +473,6 @@ fn main() {
 		panic("Could not run the simulation")
 	}
 }
-
-module vector
-import math
 
 // Vector struct, for 3D vectors
 pub struct Vector {
@@ -458,6 +495,16 @@ pub fn Vector.new(x f64, y f64, z f64) Vector {
 // ; {Vector} the new vector
 pub fn Vector.zero() Vector {
 	return Vector { x: 0.0, y: 0.0, z: 0.0 }
+}
+
+// Create a new vector from an array
+// : arr { []f64 } the array
+// ; { Vector } the new vector
+pub fn Vector.from_array(arr []f64) Vector {
+	if arr.len != 3 {
+		panic("The array must have length 3")
+	}
+	return Vector { x: arr[0], y: arr[1], z: arr[2] }
 }
 
 @[inline]

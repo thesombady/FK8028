@@ -399,6 +399,7 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 					compute_histogram(atoms[i], atoms[j], mut histogram, dr, size)
 				}
 			}
+			
 		}
 
 		// Normalize the histogram
