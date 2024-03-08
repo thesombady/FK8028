@@ -97,6 +97,7 @@ fn validate_boundary(mut pos Vector, size f64) Vector {
 // Initialize the atoms
 // : State { Bouncing || Lattice }
 // : number_of_atoms_1d { int }
+// : rng { rand.PRNG } - The random number generator
 // ; { []Atom, f64 } - Error(The atoms and the size of the box). We propagate the error
 // 	to the caller, so that the caller can handle the error (originates from the random number generator)
 fn initialize(state State, number_of_atoms_1d int, mut rng rand.PRNG) !([]Atom, f64) {
@@ -383,11 +384,6 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		idx := rand.intn(atoms.len) or {
 			panic('Could not generate random number for the atom index')
 		}
-		/*
-		idx := rng.int_in_range(0, atoms.len) or {
-			panic('Could not generate random number for the atom index')
-		}
-		*/
 
 		energy_before := compute_interaction_for_single_atom(atoms, idx, size)
 
@@ -446,11 +442,9 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 			save_g(mut file_hist, g)
 		}
 
-		//println('Completed ${(f64(ts) / f64(simulation_time) * 100):.2}%')
 
 	}
 	println('Acceptance rate: ${(f64(acceptance_rate) / f64(simulation_time) * 100):.2}%')
-	dump(rng)
 }
 
 // Computes the potential energy for a single atom

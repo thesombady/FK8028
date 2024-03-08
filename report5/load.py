@@ -58,6 +58,10 @@ def load_array(path: str) -> np.ndarray:
     
 
 def plot_radial(radial: np.ndarray):
+    """
+        Computes the radial function and plots it.
+        : radial { np.ndarray } - The radial distribution function
+    """
     
     rs = np.linspace(0, 18.04, 100) # Bin size
 
@@ -141,6 +145,10 @@ def make_figure(data: np.array, title: str, save_str: str):
 
 
 def plot_potential(potential: np.ndarray):
+    """
+        Plot the potential energy of the system
+        : potential { np.ndarray } - The potential energy of the system
+    """
 
     nu_var = np.var(potential[100_000:] / 125)
 
