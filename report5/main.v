@@ -16,7 +16,6 @@ const temperature = 94.4 // K
 const beta = 1 / (boltzman * temperature)
 
 
-
 struct Buffer {
 	potential f64
 }
@@ -100,7 +99,7 @@ fn validate_boundary(mut pos Vector, size f64) Vector {
 // : number_of_atoms_1d { int }
 // ; { []Atom, f64 } - Error(The atoms and the size of the box). We propagate the error
 // 	to the caller, so that the caller can handle the error (originates from the random number generator)
-fn initialize(state State, number_of_atoms_1d int) !([]Atom, f64) {
+fn initialize(state State, number_of_atoms_1d int, mut rng rand.PRNG) !([]Atom, f64) {
 	if state == .bouncing {
 		mut atoms := []Atom{}
 		atoms << Atom { position: Vector.new(0.07, 0.0, 0.0), velocity: Vector.zero() }
@@ -119,9 +118,9 @@ fn initialize(state State, number_of_atoms_1d int) !([]Atom, f64) {
 	for i:= 0; i < number_of_atoms_1d; i++ {
 		for j:= 0; j < number_of_atoms_1d; j++ {
 			for k:= 0; k < number_of_atoms_1d; k++ {
-				vx := rand.f64_in_range(-1.0, 1.0)!
-				vy := rand.f64_in_range(-1.0, 1.0)!
-				vz := rand.f64_in_range(-1.0, 1.0)!
+				vx := rng.f64_in_range(-1.0, 1.0)!
+				vy := rng.f64_in_range(-1.0, 1.0)!
+				vz := rng.f64_in_range(-1.0, 1.0)!
 				pos := Vector { x: i * spacing, y: j * spacing, z: k * spacing}
 				velocity := Vector { x: vx, y: vy, z: vz }.mul(1e-10) // Scaling such that the initial velocity is in Å/s
 				atoms << Atom { position: pos, velocity: velocity }
@@ -282,13 +281,13 @@ fn compute_interactions(mut all_potential []f64, atoms []Atom, size f64) {
 // Creates a random position, validated of the boundaries in the minimum convesion function
 // : pos { Vector } - The position that we wish to 'pertubate'
 // : size { f64 } - The size of the box
-// : generator { rand.PRNG } - The random number generator
+// : rng { rand.PRNG } - The random number generator
 // ; { Vector } - The new position
-fn random_position(pos Vector, size f64, mut generator rand.PRNG) Vector {
+fn random_position(pos Vector, size f64, mut rng rand.PRNG) Vector {
 	mut new_pos := [0.0, 0.0, 0.0]
 	mut old_pos := pos.to_array()
 	for i in 0..3 {
-		new_pos[i] = old_pos[i] + generator.f64_in_range(-0.5, 0.5) or {
+		new_pos[i] = old_pos[i] + rng.f64_in_range(-0.5, 0.5) or {
 			panic('Could not generate random number for the new position')
 		}
 	}
@@ -305,8 +304,11 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 	mut rng := &rand.PRNG(pcg32.PCG32RNG{})
 
 	rng.seed(seed.time_seed_array(pcg32.seed_len)) // Random seed for reproducibility
+	// rand.seed([u32(3123899732), 1412206]) // 28.56%
 
-	mut atoms, size := initialize(state, number_of_atoms_1d)!
+	dump(rng)
+
+	mut atoms, size := initialize(state, number_of_atoms_1d, mut rng)!
 	mut simulation_time := 500000 // 30000
 
 	if state == .bouncing {
@@ -376,11 +378,16 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 
 	mut acceptance_rate := 0
 	// Simulation loop 
-	inner: for ts := 0; ts < simulation_time; ts ++ { 
+	for ts := 0; ts < simulation_time; ts ++ { 
 
+		idx := rand.intn(atoms.len) or {
+			panic('Could not generate random number for the atom index')
+		}
+		/*
 		idx := rng.int_in_range(0, atoms.len) or {
 			panic('Could not generate random number for the atom index')
 		}
+		*/
 
 		energy_before := compute_interaction_for_single_atom(atoms, idx, size)
 
@@ -400,15 +407,18 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 		acceptance_probability := math.min(1.0, math.exp(-beta * delta_energy))
 		
 		
+		//accepting := (rng.f64_in_range(0.0, 1.0)! < acceptance_probability)
 		accepting := (rng.f64_in_range(0.0, 1.0)! < acceptance_probability)
+
 
 		if accepting {
 			atoms[idx].position = new_position
 			all_position[idx] = new_position
 			total_energy += delta_energy
-			save_array(mut file_pot, [total_energy])
 			acceptance_rate++
 		} 
+
+		save_array(mut file_pot, [total_energy])
 
 		if ts % 1000 == 0 {
 			// Clear the histogram each iteration
@@ -436,10 +446,11 @@ fn run_simulation(state State, number_of_atoms_1d int)! {
 			save_g(mut file_hist, g)
 		}
 
-		println('Completed ${(f64(ts) / f64(simulation_time) * 100):.2}%')
+		//println('Completed ${(f64(ts) / f64(simulation_time) * 100):.2}%')
 
 	}
 	println('Acceptance rate: ${(f64(acceptance_rate) / f64(simulation_time) * 100):.2}%')
+	dump(rng)
 }
 
 // Computes the potential energy for a single atom

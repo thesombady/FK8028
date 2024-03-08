@@ -11,7 +11,7 @@ GEV_CONVERSION = 931.394 * 10**6 # eV/c^2
 
 ATOM_MASS = 39.948 * GEV_CONVERSION / (SPEED_OF_LIGHT * 1e10)**2 # eVs^2/Å^2
 
-BOLTZMANN = 8.617333262145 * 10**-5 # eV/K
+BOLTZMANN = 8.617333262145 * 1e-5 # eV/K
 TEMPERATURE = 94.4 # K
 BETA = 1 / (BOLTZMANN * TEMPERATURE) # 1 / eV
 
@@ -64,10 +64,12 @@ def plot_radial(radial: np.ndarray):
     average_radial = np.mean(radial, axis=0)
 
     plt.title('Average radial distribution function')
-    plt.plot(rs, average_radial)
+    #plt.plot(rs, radial[0], label = '$g_0(r)$')
+    plt.plot(rs, average_radial, label = '$ \langle g(r)\\rangle = \\frac{1}{N}\\sum_{i = 1}^Ng_i(r)$')
     plt.xlabel('r (Å)')
     plt.ylabel('g(r)')
     plt.grid()
+    plt.legend()
     plt.savefig('average_radial.png')
     plt.clf()
 
@@ -113,20 +115,23 @@ def make_figure(data: np.array, title: str, save_str: str):
     for i in range(1, end):
         k = 2 ** i 
         std_err, err, block_average = return_block(data, k)
-        ax[0].errorbar(i, std_err, yerr = err, color='black', markersize = 2, fmt='o')
+        ax[0].errorbar(k, std_err, yerr = err, color='black', markersize = 2, fmt='o')
         
-        l2 = ax[1].errorbar(i, block_average, yerr = std_err, color = 'black', markersize = 3, fmt='o', label='Block average' if i == 1 else '')
+        l2 = ax[1].errorbar(k, block_average, yerr = std_err, color = 'black', markersize = 3, fmt='o', label='Block average' if i == 1 else '')
 
-        if i == 12:
-            print('Standard error {}\nand relative error {} of {}\n Mean {}'.format(std_err, err, title, block_average))
+        if i == 15:
+            print()
+            print('sigma(V_k) = {}'.format(std_err))
+
+            #print('Standard error {}\nand relative error {} of {}\n Mean {}'.format(std_err, err, title, block_average))
     
     ax[1].legend()
 
-    ax[0].set_xlabel('Block size $(2^i)$')
+    ax[0].set_xlabel('Block length ')
     ax[0].set_ylabel('Standard deviation $\\sigma(A_k)$') 
     ax[0].set_title('(a) Standard deviation of {}'.format(title))
     ax[1].set_title('(b) Mean value of of {}'.format(title))
-    ax[1].set_xlabel('Block size $(2^i)$')
+    ax[1].set_xlabel('Block length')
     ax[1].set_ylabel('Mean value $\\bar{A}_k$') 
  
     plt.savefig('{}.png'.format(save_str))
@@ -137,14 +142,13 @@ def make_figure(data: np.array, title: str, save_str: str):
 
 def plot_potential(potential: np.ndarray):
 
-    nu_var = np.var(potential / 125)
-    mean_potential = np.mean(potential)
-    var_potential = np.var(potential)
+    nu_var = np.var(potential[100_000:] / 125)
 
-    # Convert units such that we have J / (Mol K)
-    k_b = BOLTZMANN * 1.602 * 10e-19 # J / K
-    c_v = 3 * (k_b) / 2 + 125 * nu_var/ ( k_b * TEMPERATURE ** 2)
-    print('Specific heat-capacity: {} J / (Mol K)'.format(c_v) * 6.022 * 10**(23))
+
+    mean_potential = np.mean(potential)
+
+    c_v = 3 * BOLTZMANN / 2 + 125 * nu_var / ( BOLTZMANN * TEMPERATURE ** 2)
+    print('Specific heat-capacity: {} J / (Mol K)'.format(c_v * 6.022 * 1e23 * 1.602 * 1e-19)) # J / (Mol K)
 
 
     print('Mean potentail: {} eV'.format(mean_potential))
@@ -159,8 +163,9 @@ def plot_potential(potential: np.ndarray):
 
     plt.plot(iterations, potential, label = '$\mathcal{V}$')
     plt.plot(iterations, mean_potential * np.ones(len(potential)), label = '$\\bar{\mathcal{V}}$')
+    plt.vlines(100_000, -15.5, -12.5, color = 'black', label = 'Equilibration')
     plt.title('Potential energy of the system')
-    plt.xlabel('Number of accepted moves')
+    plt.xlabel('Number of iterations')
     plt.ylabel('$\mathcal{V}$ eV')
     plt.legend()
     plt.savefig('potential_energy.png')
@@ -173,5 +178,4 @@ if __name__ == '__main__':
     potential = load('lattice_pot.txt')
     plot_radial(g_r)
     make_figure(potential, '$A = \mathcal{V}$', 'var_p')
-    print('\n')
     plot_potential(potential)
